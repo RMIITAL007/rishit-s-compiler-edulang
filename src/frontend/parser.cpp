@@ -94,6 +94,8 @@ ast::StmtPtr Parser::block_statement() {
     return std::make_unique<ast::BlockStmt>(std::move(statements), combine_spans(start, previous().span));
 }
 
+// Precedence is layered from lowest to highest: ||, &&, equality, comparison,
+// addition/subtraction, multiplication/division, then unary and primary values.
 ast::ExprPtr Parser::expression() { return or_expression(); }
 
 ast::ExprPtr Parser::or_expression() {

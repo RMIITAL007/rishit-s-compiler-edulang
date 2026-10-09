@@ -42,6 +42,8 @@ bool binary_constant(OpCode opcode, const Constant& left, const Constant& right,
 }  // namespace
 
 Program Optimizer::optimize(const Program& program) const {
+    // Replace constant unary and binary instruction sequences with one load.
+    // Control-flow boundaries clear the local facts to avoid unsafe propagation.
     Program optimized;
     std::unordered_map<std::string, Constant> constants;
     for (const Instruction& instruction : program.instructions) {

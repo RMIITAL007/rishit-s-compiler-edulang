@@ -26,6 +26,7 @@ void Generator::generate_statement(const ast::Stmt& statement) {
     } else if (const auto* block = dynamic_cast<const ast::BlockStmt*>(&statement)) {
         for (const auto& nested : block->statements) generate_statement(*nested);
     } else if (const auto* conditional = dynamic_cast<const ast::IfStmt*>(&statement)) {
+        // if/else branches share an end label; a false condition jumps to else.
         const std::string condition = generate_expression(*conditional->condition);
         const std::string else_label = new_label();
         const std::string end_label = new_label();
@@ -36,6 +37,7 @@ void Generator::generate_statement(const ast::Stmt& statement) {
         if (conditional->else_branch) generate_statement(*conditional->else_branch);
         program_.instructions.push_back({OpCode::Label, {}, {}, {}, 0, false, end_label, conditional->span});
     } else if (const auto* loop = dynamic_cast<const ast::WhileStmt*>(&statement)) {
+        // A loop label marks the condition check; true bodies jump back, false exits.
         const std::string start_label = new_label();
         const std::string end_label = new_label();
         program_.instructions.push_back({OpCode::Label, {}, {}, {}, 0, false, start_label, loop->span});

@@ -13,6 +13,8 @@ const char* type_name(ValueType type) {
     return "invalid";
 }
 
+// Arithmetic and comparisons use int operands; logical operators and ! use bool.
+// Every expression returns its type so assignments and control-flow conditions can be checked.
 ValueType analyze_expression(const ast::Expr& expression, const SymbolTable& symbols,
                             DiagnosticBag& diagnostics) {
     if (dynamic_cast<const ast::NumberExpr*>(&expression) != nullptr) return ValueType::Int;
