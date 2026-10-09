@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -39,11 +40,33 @@ void print_tokens(const std::vector<edulang::Token>& tokens) {
     }
 }
 
+const char* value_type_name(edulang::ValueType type) {
+    switch (type) {
+        case edulang::ValueType::Int: return "int";
+        case edulang::ValueType::Bool: return "bool";
+        case edulang::ValueType::Error: return "error";
+    }
+    return "unknown";
+}
+
+void print_symbol_table(const edulang::SymbolTable& symbols) {
+    auto entries = symbols.current_scope_entries();
+    std::sort(entries.begin(), entries.end(),
+              [](const auto& left, const auto& right) { return left.first < right.first; });
+    std::cout << "Symbol Table\n";
+    std::cout << "Name  Type  Declared At\n";
+    for (const auto& [name, symbol] : entries) {
+        std::cout << name << "  " << value_type_name(symbol.type) << "  "
+                  << symbol.declaration_span.start.line << ':'
+                  << symbol.declaration_span.start.column << '\n';
+    }
+}
+
 }  
 
 int main(int argc, char* argv[]) {
     if (argc < 2 || argc > 3) {
-        std::cerr << "Usage: compiler [tokens|ast|ir|run|target] <source-file>\n";
+        std::cerr << "Usage: compiler [tokens|ast|symbols|ir|run|target] <source-file>\n";
         return 2;
     }
 
@@ -54,8 +77,9 @@ int main(int argc, char* argv[]) {
     } else {
         mode = argv[1];
         file_name = argv[2];
-        if (mode != "tokens" && mode != "ast" && mode != "ir" && mode != "run" && mode != "target") {
-            std::cerr << "Mode must be 'tokens', 'ast', 'ir', 'run', or 'target'.\n";
+        if (mode != "tokens" && mode != "ast" && mode != "symbols" && mode != "ir" &&
+            mode != "run" && mode != "target") {
+            std::cerr << "Mode must be 'tokens', 'ast', 'symbols', 'ir', 'run', or 'target'.\n";
             return 2;
         }
     }
@@ -77,6 +101,9 @@ int main(int argc, char* argv[]) {
     if (!diagnostics.has_errors() && (mode == "all" || mode == "ast")) {
         std::cout << "AST\n";
         edulang::ast::print_ast(result.program, std::cout);
+    }
+    if (!diagnostics.has_errors() && (mode == "all" || mode == "symbols")) {
+        print_symbol_table(result.symbols);
     }
     if (!diagnostics.has_errors() && (mode == "all" || mode == "ir" || mode == "run" || mode == "target")) {
         edulang::ir::Generator generator;

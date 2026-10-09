@@ -5,6 +5,7 @@
 
 #include "edulang/ast/ast.hpp"
 #include "edulang/frontend/diagnostic.hpp"
+#include "edulang/frontend/symbol_table.hpp"
 #include "edulang/frontend/token.hpp"
 
 namespace edulang {
@@ -12,6 +13,7 @@ namespace edulang {
 struct FrontendResult {
     std::vector<Token> tokens;
     ast::Program program;
+    SymbolTable symbols;
 };
 
 class Frontend {

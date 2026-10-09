@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 #include <unordered_map>
 #include <vector>
 
@@ -29,6 +30,7 @@ public:
     [[nodiscard]] bool declare(const std::string& name, Symbol symbol);
     [[nodiscard]] const Symbol* lookup(const std::string& name) const;
     [[nodiscard]] bool is_declared_in_current_scope(const std::string& name) const;
+    [[nodiscard]] std::vector<std::pair<std::string, Symbol>> current_scope_entries() const;
 
 private:
     std::vector<std::unordered_map<std::string, Symbol>> scopes_;

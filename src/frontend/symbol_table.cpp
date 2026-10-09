@@ -34,4 +34,12 @@ bool SymbolTable::is_declared_in_current_scope(const std::string& name) const {
     return current_scope.find(name) != current_scope.end();
 }
 
+std::vector<std::pair<std::string, Symbol>> SymbolTable::current_scope_entries() const {
+    std::vector<std::pair<std::string, Symbol>> entries;
+    for (const auto& [name, symbol] : scopes_.front()) {
+        entries.emplace_back(name, symbol);
+    }
+    return entries;
+}
+
 }  // namespace edulang

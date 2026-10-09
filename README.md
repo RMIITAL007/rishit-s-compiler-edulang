@@ -92,6 +92,12 @@ AST:
 ./build/compiler ast examples/hello.edu
 ```
 
+Symbol table:
+
+```bash
+./build/compiler symbols examples/hello.edu
+```
+
 Intermediate code:
 
 ```bash

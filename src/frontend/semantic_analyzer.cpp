@@ -133,8 +133,8 @@ void analyze_statement(const ast::Stmt& statement, SymbolTable& symbols,
 
 }  // namespace
 
-void SemanticAnalyzer::analyze(const ast::Program& program, DiagnosticBag& diagnostics) const {
-    SymbolTable symbols;
+void SemanticAnalyzer::analyze(const ast::Program& program, DiagnosticBag& diagnostics,
+                               SymbolTable& symbols) const {
     for (const auto& statement : program.statements) analyze_statement(*statement, symbols, diagnostics);
 }
 

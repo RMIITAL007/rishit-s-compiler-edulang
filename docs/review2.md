@@ -69,6 +69,7 @@ Show individual stages:
 ```text
 build/compiler tokens examples/hello.edu
 build/compiler ast examples/hello.edu
+build/compiler symbols examples/hello.edu
 build/compiler ir examples/hello.edu
 build/compiler run examples/hello.edu
 build/compiler target examples/hello.edu

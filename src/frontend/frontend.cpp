@@ -14,13 +14,14 @@ FrontendResult Frontend::analyze(std::string_view source, DiagnosticBag& diagnos
 
     Parser parser(tokens, diagnostics);
     ast::Program program = parser.parse();
+    SymbolTable symbols;
 
     if (!diagnostics.has_errors()) {
         SemanticAnalyzer semantic_analyzer;
-        semantic_analyzer.analyze(program, diagnostics);
+        semantic_analyzer.analyze(program, diagnostics, symbols);
     }
 
-    return FrontendResult{std::move(tokens), std::move(program)};
+    return FrontendResult{std::move(tokens), std::move(program), std::move(symbols)};
 }
 
 }  
