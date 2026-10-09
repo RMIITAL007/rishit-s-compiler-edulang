@@ -4,6 +4,7 @@
 
 #include "edulang/frontend/lexer.hpp"
 #include "edulang/frontend/parser.hpp"
+#include "edulang/frontend/semantic_analyzer.hpp"
 
 namespace edulang {
 
@@ -13,6 +14,12 @@ FrontendResult Frontend::analyze(std::string_view source, DiagnosticBag& diagnos
 
     Parser parser(tokens, diagnostics);
     ast::Program program = parser.parse();
+
+    if (!diagnostics.has_errors()) {
+        SemanticAnalyzer semantic_analyzer;
+        semantic_analyzer.analyze(program, diagnostics);
+    }
+
     return FrontendResult{std::move(tokens), std::move(program)};
 }
 

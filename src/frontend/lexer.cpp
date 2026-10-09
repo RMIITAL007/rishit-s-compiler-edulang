@@ -15,6 +15,11 @@ namespace {
     if (lexeme == "int") {
         return TokenType::KwInt;
     }
+    if (lexeme == "if") return TokenType::KwIf;
+    if (lexeme == "else") return TokenType::KwElse;
+    if (lexeme == "while") return TokenType::KwWhile;
+    if (lexeme == "true") return TokenType::KwTrue;
+    if (lexeme == "false") return TokenType::KwFalse;
     return TokenType::Identifier;
 }
 
@@ -26,14 +31,30 @@ const char* token_type_name(TokenType type) {
         case TokenType::Number: return "number";
         case TokenType::KwPrint: return "'print'";
         case TokenType::KwInt: return "'int'";
+        case TokenType::KwIf: return "'if'";
+        case TokenType::KwElse: return "'else'";
+        case TokenType::KwWhile: return "'while'";
+        case TokenType::KwTrue: return "'true'";
+        case TokenType::KwFalse: return "'false'";
         case TokenType::LeftParen: return "'('";
         case TokenType::RightParen: return "')'";
+        case TokenType::LeftBrace: return "'{'";
+        case TokenType::RightBrace: return "'}'";
         case TokenType::Semicolon: return "';'";
         case TokenType::Plus: return "'+'";
         case TokenType::Minus: return "'-'";
         case TokenType::Star: return "'*'";
         case TokenType::Slash: return "'/'";
         case TokenType::Equal: return "'='";
+        case TokenType::EqualEqual: return "'=='";
+        case TokenType::Bang: return "'!'";
+        case TokenType::BangEqual: return "'!='";
+        case TokenType::Less: return "'<'";
+        case TokenType::LessEqual: return "'<='";
+        case TokenType::Greater: return "'>'";
+        case TokenType::GreaterEqual: return "'>='";
+        case TokenType::AndAnd: return "'&&'";
+        case TokenType::OrOr: return "'||'";
     }
     return "unknown token";
 }
@@ -98,6 +119,12 @@ void Lexer::scan_token() {
         case ')':
             add_token(TokenType::RightParen);
             return;
+        case '{':
+            add_token(TokenType::LeftBrace);
+            return;
+        case '}':
+            add_token(TokenType::RightBrace);
+            return;
         case ';':
             add_token(TokenType::Semicolon);
             return;
@@ -111,7 +138,24 @@ void Lexer::scan_token() {
             add_token(TokenType::Star);
             return;
         case '=':
-            add_token(TokenType::Equal);
+            add_token(match('=') ? TokenType::EqualEqual : TokenType::Equal);
+            return;
+        case '!':
+            add_token(match('=') ? TokenType::BangEqual : TokenType::Bang);
+            return;
+        case '<':
+            add_token(match('=') ? TokenType::LessEqual : TokenType::Less);
+            return;
+        case '>':
+            add_token(match('=') ? TokenType::GreaterEqual : TokenType::Greater);
+            return;
+        case '&':
+            if (match('&')) add_token(TokenType::AndAnd);
+            else diagnostics_.error(SourceSpan{start_position_, position_}, "expected '&' after '&'");
+            return;
+        case '|':
+            if (match('|')) add_token(TokenType::OrOr);
+            else diagnostics_.error(SourceSpan{start_position_, position_}, "expected '|' after '|'");
             return;
         case '/':
             if (match('/')) {

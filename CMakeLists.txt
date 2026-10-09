@@ -1,40 +1,37 @@
 cmake_minimum_required(VERSION 3.20)
-
-project(CompilerLab LANGUAGES CXX)
+project(CompilerLab VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_library(compiler_frontend
-    src/ast/printer.cpp
-    src/frontend/diagnostic.cpp
+enable_testing()
+
+include_directories(${CMAKE_SOURCE_DIR}/include)
+
+set(COMMON_SOURCES
     src/frontend/frontend.cpp
     src/frontend/lexer.cpp
     src/frontend/parser.cpp
+    src/frontend/diagnostic.cpp
+    src/frontend/semantic_analyzer.cpp
+    src/frontend/symbol_table.cpp
+    src/ast/printer.cpp
+    src/ir/ir.cpp
+    src/ir/generator.cpp
+    src/ir/optimizer.cpp
+    src/runtime/interpreter.cpp
+    src/target/code_generator.cpp
 )
 
-target_include_directories(compiler_frontend
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+add_executable(compiler
+    src/main.cpp
+    ${COMMON_SOURCES}
 )
 
-target_compile_features(compiler_frontend PUBLIC cxx_std_20)
+add_executable(compiler_tests
+    tests/test_main.cpp
+    ${COMMON_SOURCES}
+)
 
-if(MSVC)
-    target_compile_options(compiler_frontend PRIVATE /W4 /permissive-)
-else()
-    target_compile_options(compiler_frontend PRIVATE -Wall -Wextra -Wpedantic)
-endif()
-
-add_executable(compiler src/main.cpp)
-target_link_libraries(compiler PRIVATE compiler_frontend)
-
-include(CTest)
-if(BUILD_TESTING)
-    add_executable(compiler_tests
-        tests/test_main.cpp
-    )
-    target_link_libraries(compiler_tests PRIVATE compiler_frontend)
-    add_test(NAME compiler_tests COMMAND compiler_tests)
-endif()
+add_test(NAME compiler_tests COMMAND compiler_tests)

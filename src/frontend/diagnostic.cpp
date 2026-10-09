@@ -52,16 +52,22 @@ std::string DiagnosticBag::render(std::string_view source, std::string_view sour
     std::ostringstream output;
 
     for (const Diagnostic& diagnostic : diagnostics_) {
-        const SourcePosition& position = diagnostic.span.start;
-        output << source_name << ':' << position.line << ':' << position.column << ": "
+        const SourcePosition& start = diagnostic.span.start;
+        const SourcePosition& end = diagnostic.span.end;
+        output << source_name << ':' << start.line << ':' << start.column << ": "
                << severity_name(diagnostic.severity) << ": " << diagnostic.message << '\n';
 
-        const std::string line = source_line_at(source, position.line);
-        if (!line.empty() || position.line == 1) {
+        const std::string line = source_line_at(source, start.line);
+        if (!line.empty() || start.line == 1) {
             output << "  | " << line << '\n';
             output << "  | ";
-            const std::size_t spaces = position.column > 0 ? position.column - 1 : 0;
-            output << std::string(spaces, ' ') << '^' << '\n';
+
+            const std::size_t start_column = start.column > 0 ? start.column - 1 : 0;
+            const std::size_t end_column = end.column > 0 ? end.column - 1 : 0;
+            const std::size_t width = (start.line == end.line && end_column >= start_column)
+                                         ? (end_column - start_column + 1)
+                                         : 1;
+            output << std::string(start_column, ' ') << std::string(width, '^') << '\n';
         }
     }
 
