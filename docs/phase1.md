@@ -28,7 +28,7 @@ Compiler Design concepts are easier to understand when they are implemented in a
 
 ## 6. Scope of Phase 1
 
-Phase 1 covers the compiler frontend up to AST generation. It includes source reading, lexical analysis, token generation, syntax analysis, AST construction, AST printing, and diagnostic reporting. The current project does not include semantic analysis, a symbol table, intermediate code, optimization, code generation, or execution of EduLang programs.
+Phase 1 covers the compiler frontend up to AST generation. It includes source reading, lexical analysis, token generation, syntax analysis, AST construction, AST printing, and diagnostic reporting. Review 2 extends this frontend with semantic analysis, a symbol table, intermediate code, and an execution engine; the Review 2 implementation is documented in `docs/review2.md`.
 
 ## 7. Background / Compiler Design Concepts
 
@@ -75,7 +75,7 @@ The implemented operators are:
 - Arithmetic: `+`, `-`, `*`, `/`
 - Assignment: `=`
 
-The parser gives `*` and `/` higher precedence than `+` and `-`. Parentheses can be used to group expressions. Unary operators and boolean operators are not implemented.
+The parser gives `*` and `/` higher precedence than `+` and `-`. Parentheses can be used to group expressions. Review 2 extends the expression grammar with unary operators, boolean operators, comparisons, and boolean literals.
 
 ### Delimiters
 
@@ -181,7 +181,7 @@ CMakeLists.txt             Build and test configuration
 
 The current implementation supports integer declarations such as `int a = 10;`, assignments such as `a = a + 1;`, and print statements such as `print(a);`. It supports integer and identifier expressions, parentheses, and the four binary arithmetic operators with normal arithmetic precedence. The lexer handles line and block comments, tracks line and column positions, and appends an EOF token.
 
-The parser creates an AST and the CLI can print its tree form. For valid input, the compiler prints the token list followed by the AST. For invalid input, it prints the tokens collected before or around the error and renders diagnostics. There is no semantic analysis or program execution in this phase.
+The parser creates an AST and the CLI can print its tree form. For valid input, the compiler prints the token list followed by the AST, intermediate code, and execution output. For invalid input, it prints the tokens collected before or around the error and renders diagnostics. Basic semantic analysis and execution are implemented for Review 2.
 
 ## 16. Testing
 
@@ -237,14 +237,13 @@ Phase 1 successfully builds a working frontend for the current EduLang syntax. I
 
 ## 18. Current Limitations
 
-- There is no semantic analysis or symbol table.
-- The compiler does not execute programs or generate machine code.
-- Variable use before declaration and duplicate declarations are not checked.
-- Only integer literals and arithmetic expressions are supported.
-- Boolean expressions, control-flow statements, functions, strings, and other data types are not implemented.
+- Semantic analysis currently supports undeclared-variable and duplicate-declaration checks.
+- The compiler executes supported programs through an intermediate-code interpreter, but does not generate machine code.
+- The symbol table currently tracks integer symbols and declaration spans; nested block syntax is not yet part of the language.
+- The current language supports integer and boolean expressions, `if`/`else`, `while`, and nested brace blocks; functions and strings are not implemented.
 - Unary minus is not parsed even though the `-` binary operator is supported.
 - Diagnostics are basic and there is no recovery beyond parser synchronization at semicolons.
 
 ## 19. Work Planned for Phase 2
 
-Phase 2 can extend the frontend with semantic analysis, including symbol-table management, declaration and use checking, and type-related checks as the language grows. It can also add more language constructs such as boolean expressions and control flow. These features are planned future work and are not part of the current Phase 1 implementation.
+Phase 2 is implemented in `docs/review2.md` and includes semantic analysis, symbol-table management, declaration and use checking, three-address-style intermediate code, execution, runtime diagnostics, and automated tests. Future work includes richer types, control flow, optimization, and target-machine code generation.
