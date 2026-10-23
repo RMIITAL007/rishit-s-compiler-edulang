@@ -32,13 +32,13 @@ This creates:
 
 ## 3. Running Automated Tests
 
-Run the full suite of 25 unit and regression tests using CTest:
+Run the full suite of 6 registered CMake CTest targets:
 
 ```bash
 ctest --test-dir build --output-on-failure
 ```
 
-To see individual test case names:
+To see individual unit test case names (all 31 tests):
 ```bash
 ./build/compiler_tests
 ```
@@ -52,6 +52,10 @@ undeclared variable: PASS
 duplicate declaration: PASS
 IR and execution: PASS
 runtime error: PASS
+parser error recovery: PASS
+symbol table visibility: PASS
+logical short circuit: PASS
+checked integer arithmetic: PASS
 boolean/control flow: PASS
 type/scope errors: PASS
 optimization/target code: PASS
@@ -67,6 +71,8 @@ not on int: PASS
 bool comparison: PASS
 integer overflow: PASS
 boolean equality: PASS
+scope shadowing: PASS
+nested shadowing and assignments: PASS
 multiple diagnostics: PASS
 optimization statistics: PASS
 educational hints: PASS
@@ -141,6 +147,8 @@ Optimization Metrics:
   - Constant Expressions Folded:  1
   - Optimization Reduction Rate:  5.9%
 ```
+
+*(Note: The 5.9% metric reflects the percentage of TAC instructions optimized via constant folding: 1 folded constant expression out of 17 total instructions = 5.9%. Because constant folding evaluates expressions into constant loads rather than deleting instructions in this pass, the total TAC instruction count remains 17 before and after.)*
 
 ---
 

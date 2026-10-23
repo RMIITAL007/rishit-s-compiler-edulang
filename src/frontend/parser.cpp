@@ -25,6 +25,10 @@ ast::StmtPtr Parser::statement() {
     if (match(TokenType::KwWhile)) return while_statement();
     if (match(TokenType::LeftBrace)) return block_statement();
     if (check(TokenType::Identifier)) return assignment();
+    if (match(TokenType::RightBrace)) {
+        error(previous(), "unexpected '}'", "remove this brace or add a matching '{' before it.");
+        return nullptr;
+    }
     error(peek(), "expected 'int', 'print', 'if', 'while', or an assignment",
           "valid statements begin with 'int', 'print', 'if', 'while', or a variable name.");
     synchronize();
@@ -123,7 +127,9 @@ ast::StmtPtr Parser::block_statement() {
     const auto start = previous().span;
     std::vector<ast::StmtPtr> statements;
     while (!check(TokenType::RightBrace) && !at_end()) {
+        const std::size_t before = current_;
         if (ast::StmtPtr parsed = statement()) statements.push_back(std::move(parsed));
+        if (current_ == before && !at_end() && !check(TokenType::RightBrace)) advance();
     }
     if (!match(TokenType::RightBrace)) { error(peek(), "expected '}' after block"); return nullptr; }
     return std::make_unique<ast::BlockStmt>(std::move(statements), combine_spans(start, previous().span));
@@ -225,11 +231,22 @@ const Token& Parser::advance() { if (!at_end()) ++current_; return previous(); }
 const Token& Parser::peek() const { return tokens_[current_]; }
 const Token& Parser::previous() const { return tokens_[current_ - 1]; }
 bool Parser::at_end() const { return peek().type == TokenType::EndOfFile; }
+bool Parser::is_statement_start() const {
+    if (check(TokenType::KwInt) || check(TokenType::KwPrint) || check(TokenType::KwIf) ||
+        check(TokenType::KwWhile) || check(TokenType::LeftBrace)) {
+        return true;
+    }
+    return check(TokenType::Identifier) && current_ + 1 < tokens_.size() &&
+           tokens_[current_ + 1].type == TokenType::Equal;
+}
 void Parser::error(const Token& token, const char* message, const char* hint) {
     diagnostics_.error(token.span, message, hint);
 }
 void Parser::synchronize() {
-    while (!at_end() && !match(TokenType::Semicolon) && !check(TokenType::RightBrace)) advance();
+    while (!at_end()) {
+        if (match(TokenType::Semicolon) || check(TokenType::RightBrace) || is_statement_start()) return;
+        advance();
+    }
 }
 
 }  // namespace edulang

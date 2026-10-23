@@ -16,10 +16,16 @@ Program Generator::generate(const ast::Program& program) {
 void Generator::generate_statement(const ast::Stmt& statement) {
     if (const auto* declaration = dynamic_cast<const ast::DeclarationStmt*>(&statement)) {
         const std::string value = generate_expression(*declaration->value);
-        program_.instructions.push_back({OpCode::StoreName, declaration->name, value, {}, 0, false, {}, declaration->span});
+        const std::string& storage_name = declaration->storage_name.empty()
+            ? declaration->name
+            : declaration->storage_name;
+        program_.instructions.push_back({OpCode::StoreName, storage_name, value, {}, 0, false, {}, declaration->span});
     } else if (const auto* assignment = dynamic_cast<const ast::AssignmentStmt*>(&statement)) {
         const std::string value = generate_expression(*assignment->value);
-        program_.instructions.push_back({OpCode::StoreName, assignment->name, value, {}, 0, false, {}, assignment->span});
+        const std::string& storage_name = assignment->storage_name.empty()
+            ? assignment->name
+            : assignment->storage_name;
+        program_.instructions.push_back({OpCode::StoreName, storage_name, value, {}, 0, false, {}, assignment->span});
     } else if (const auto* print = dynamic_cast<const ast::PrintStmt*>(&statement)) {
         const std::string value = generate_expression(*print->value);
         program_.instructions.push_back({OpCode::Print, {}, value, {}, 0, false, {}, print->span});
@@ -62,7 +68,8 @@ std::string Generator::generate_expression(const ast::Expr& expression) {
     }
     if (const auto* name = dynamic_cast<const ast::NameExpr*>(&expression)) {
         const std::string temporary = new_temporary();
-        program_.instructions.push_back({OpCode::LoadName, temporary, name->name, {}, 0, false, {}, name->span});
+        const std::string& storage_name = name->storage_name.empty() ? name->name : name->storage_name;
+        program_.instructions.push_back({OpCode::LoadName, temporary, storage_name, {}, 0, false, {}, name->span});
         return temporary;
     }
     if (const auto* unary = dynamic_cast<const ast::UnaryExpr*>(&expression)) {
@@ -74,6 +81,42 @@ std::string Generator::generate_expression(const ast::Expr& expression) {
     }
     const auto* binary = dynamic_cast<const ast::BinaryExpr*>(&expression);
     if (binary == nullptr) throw std::logic_error("unknown expression node");
+    if (binary->op == "&&") {
+        const std::string left = generate_expression(*binary->left);
+        const std::string result = new_temporary();
+        const std::string false_label = new_label();
+        const std::string end_label = new_label();
+        program_.instructions.push_back({OpCode::JumpIfFalse, {}, left, {}, 0, false, false_label, binary->left->span});
+
+        const std::string right = generate_expression(*binary->right);
+        program_.instructions.push_back({OpCode::JumpIfFalse, {}, right, {}, 0, false, false_label, binary->right->span});
+        program_.instructions.push_back({OpCode::LoadBool, result, {}, {}, 0, true, {}, binary->span});
+        program_.instructions.push_back({OpCode::Jump, {}, {}, {}, 0, false, end_label, binary->span});
+        program_.instructions.push_back({OpCode::Label, {}, {}, {}, 0, false, false_label, binary->span});
+        program_.instructions.push_back({OpCode::LoadBool, result, {}, {}, 0, false, {}, binary->span});
+        program_.instructions.push_back({OpCode::Label, {}, {}, {}, 0, false, end_label, binary->span});
+        return result;
+    }
+    if (binary->op == "||") {
+        const std::string left = generate_expression(*binary->left);
+        const std::string result = new_temporary();
+        const std::string right_label = new_label();
+        const std::string false_label = new_label();
+        const std::string end_label = new_label();
+        program_.instructions.push_back({OpCode::JumpIfFalse, {}, left, {}, 0, false, right_label, binary->left->span});
+        program_.instructions.push_back({OpCode::LoadBool, result, {}, {}, 0, true, {}, binary->span});
+        program_.instructions.push_back({OpCode::Jump, {}, {}, {}, 0, false, end_label, binary->span});
+        program_.instructions.push_back({OpCode::Label, {}, {}, {}, 0, false, right_label, binary->span});
+
+        const std::string right = generate_expression(*binary->right);
+        program_.instructions.push_back({OpCode::JumpIfFalse, {}, right, {}, 0, false, false_label, binary->right->span});
+        program_.instructions.push_back({OpCode::LoadBool, result, {}, {}, 0, true, {}, binary->span});
+        program_.instructions.push_back({OpCode::Jump, {}, {}, {}, 0, false, end_label, binary->span});
+        program_.instructions.push_back({OpCode::Label, {}, {}, {}, 0, false, false_label, binary->span});
+        program_.instructions.push_back({OpCode::LoadBool, result, {}, {}, 0, false, {}, binary->span});
+        program_.instructions.push_back({OpCode::Label, {}, {}, {}, 0, false, end_label, binary->span});
+        return result;
+    }
     const std::string left = generate_expression(*binary->left);
     const std::string right = generate_expression(*binary->right);
     const std::string temporary = new_temporary();

@@ -54,15 +54,29 @@ const char* value_type_name(edulang::ValueType type) {
 }
 
 void print_symbol_table(const edulang::SymbolTable& symbols) {
-    auto entries = symbols.current_scope_entries();
+    auto entries = symbols.all_entries();
     std::sort(entries.begin(), entries.end(),
-              [](const auto& left, const auto& right) { return left.first < right.first; });
+              [](const auto& left, const auto& right) {
+                  if (left.scope_depth != right.scope_depth) return left.scope_depth < right.scope_depth;
+                  if (left.symbol.declaration_span.start.line != right.symbol.declaration_span.start.line) {
+                      return left.symbol.declaration_span.start.line < right.symbol.declaration_span.start.line;
+                  }
+                  if (left.symbol.declaration_span.start.column != right.symbol.declaration_span.start.column) {
+                      return left.symbol.declaration_span.start.column < right.symbol.declaration_span.start.column;
+                  }
+                  return left.source_name < right.source_name;
+              });
     std::cout << "Symbol Table\n";
-    std::cout << "Name  Type  Declared At\n";
-    for (const auto& [name, symbol] : entries) {
-        std::cout << name << "  " << value_type_name(symbol.type) << "  "
-                  << symbol.declaration_span.start.line << ':'
-                  << symbol.declaration_span.start.column << '\n';
+    std::cout << "Source Name  Storage Name  Scope  Status        Type  Declared At\n";
+    for (const auto& entry : entries) {
+        const std::string scope = entry.scope_depth == 0
+            ? "global"
+            : "block " + std::to_string(entry.scope_depth);
+        std::cout << entry.source_name << "  " << entry.symbol.storage_name << "  "
+                  << scope << "  " << (entry.active ? "active" : "out of scope") << "  "
+                  << value_type_name(entry.symbol.type) << "  "
+                  << entry.symbol.declaration_span.start.line << ':'
+                  << entry.symbol.declaration_span.start.column << '\n';
     }
 }
 
@@ -74,7 +88,7 @@ void print_skipped_stage(const char* stage) {
     std::cout << "[SKIP] " << stage << " (an earlier stage failed)\n";
 }
 
-void run_benchmark(const std::string& source, const std::string& file_name) {
+bool run_benchmark(const std::string& source, const std::string& file_name) {
     using namespace std::chrono;
     std::cout << "========================================================\n";
     std::cout << "        EduLang Compiler Benchmark & Performance        \n";
@@ -82,6 +96,10 @@ void run_benchmark(const std::string& source, const std::string& file_name) {
     std::cout << "Source File: " << file_name << " (" << source.size() << " bytes)\n\n";
 
     edulang::DiagnosticBag diagnostics;
+    const auto report_diagnostics = [&] {
+        std::cout.flush();
+        std::cerr << diagnostics.render(source, file_name);
+    };
     const auto total_start = high_resolution_clock::now();
 
     // 1. Lexical Analysis
@@ -92,20 +110,20 @@ void run_benchmark(const std::string& source, const std::string& file_name) {
     const auto lex_duration = duration_cast<nanoseconds>(lex_end - lex_start).count();
 
     if (diagnostics.has_errors()) {
-        std::cerr << diagnostics.render(source, file_name);
-        return;
+        report_diagnostics();
+        return false;
     }
 
     // 2. Syntax Analysis & AST Construction
     const auto parse_start = high_resolution_clock::now();
     edulang::Parser parser(tokens, diagnostics);
-    const auto program = parser.parse();
+    auto program = parser.parse();
     const auto parse_end = high_resolution_clock::now();
     const auto parse_duration = duration_cast<nanoseconds>(parse_end - parse_start).count();
 
     if (diagnostics.has_errors()) {
-        std::cerr << diagnostics.render(source, file_name);
-        return;
+        report_diagnostics();
+        return false;
     }
 
     // 3. Semantic Analysis & Scoping
@@ -117,8 +135,8 @@ void run_benchmark(const std::string& source, const std::string& file_name) {
     const auto sem_duration = duration_cast<nanoseconds>(sem_end - sem_start).count();
 
     if (diagnostics.has_errors()) {
-        std::cerr << diagnostics.render(source, file_name);
-        return;
+        report_diagnostics();
+        return false;
     }
 
     // 4. IR Generation
@@ -184,9 +202,13 @@ void run_benchmark(const std::string& source, const std::string& file_name) {
         : 0.0;
     std::cout << "  - Optimization Reduction Rate:  " << std::fixed << std::setprecision(1) << reduction << "%\n";
 
-    if (run_ok) {
-        std::cout << "\nProgram Execution Output:\n" << runtime_buffer.str();
+    if (!run_ok || diagnostics.has_errors()) {
+        report_diagnostics();
+        return false;
     }
+
+    std::cout << "\nProgram Execution Output:\n" << runtime_buffer.str();
+    return true;
 }
 
 }  
@@ -218,8 +240,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (mode == "bench") {
-        run_benchmark(source, file_name);
-        return 0;
+        return run_benchmark(source, file_name) ? 0 : 1;
     }
 
     edulang::DiagnosticBag diagnostics;

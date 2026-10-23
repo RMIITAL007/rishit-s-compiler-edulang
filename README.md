@@ -6,7 +6,7 @@ EduLang is a small educational compiler implemented in C++20. It demonstrates a 
 source -> lexer -> tokens -> parser -> AST -> semantic analysis -> IR -> optimizer -> interpreter / target pseudo-assembly
 ```
 
-The project is designed for Compiler Design Review 2 and supports lexical analysis, syntax analysis, AST construction, semantic checking, scoped symbol lookup, intermediate code generation, optimization, interpretation, target-code generation, and diagnostics.
+The project is designed for the Compiler Design Laboratory and supports lexical analysis, syntax analysis, AST construction, semantic checking, scoped symbol lookup, intermediate code generation, optimization, interpretation, target-code generation, and diagnostics.
 
 ## Language Features
 
@@ -56,7 +56,7 @@ src/
   target/       target pseudo-assembly generator
 tests/           compiler test executable
 examples/        valid and invalid EduLang programs
-docs/            Phase 1 and Review 2 documentation
+docs/            project reports, presentation material, and user documentation
 build/           generated CMake output, ignored by Git
 CMakeLists.txt   CMake build and CTest configuration
 ```
@@ -74,8 +74,13 @@ ctest --test-dir build --output-on-failure
 The verified result is:
 
 ```text
-1/1 Test #1: compiler_tests ... Passed
-100% tests passed out of 1
+1/6 Test #1: compiler_tests ......................   Passed
+2/6 Test #2: compiler_symbols_scopes .............   Passed
+3/6 Test #3: compiler_benchmark_valid ............   Passed
+4/6 Test #4: compiler_benchmark_runtime_error ....   Passed
+5/6 Test #5: compiler_benchmark_syntax_error .....   Passed
+6/6 Test #6: compiler_benchmark_semantic_error ...   Passed
+100% tests passed out of 6
 ```
 
 ## Running Compiler Stages
@@ -196,12 +201,13 @@ PRINT t4
 
 ## Tests
 
-The test source is [tests/test_main.cpp](tests/test_main.cpp). It contains 25
+The test source is [tests/test_main.cpp](tests/test_main.cpp). It contains 31
 checks for valid programs; lexical, syntax, semantic, and runtime errors; IR
-execution; boolean expressions; control flow; nested scopes; optimization;
-target-code generation; and edge cases.
+execution; boolean expressions; short-circuiting; checked integer arithmetic;
+control flow; nested scopes; variable shadowing; optimization; target-code
+generation; and educational hints.
 
-Run the registered test target with:
+Run the registered test targets with:
 
 ```bash
 ctest --test-dir build --output-on-failure
@@ -218,11 +224,13 @@ To display each check individually during the review:
 - **Complete Working Pipeline:** Lexer, parser, AST, scoped symbol table, semantic type checker, TAC IR generator, constant-folding optimizer, pseudo-assembly target generator, and runtime interpreter VM.
 - **Educational Pinpoint Diagnostics:** Detailed error reporting answering WHERE (line:col + visual carets `^^^^`), WHAT (explicit mistake description), and HOW TO FIX (`= hint:`).
 - **Performance Evaluation & Benchmarks:** Built-in high-resolution profiling via `./build/compiler bench <file>` reporting nanosecond/microsecond phase latencies and constant folding reduction percentages.
-- **Automated Validation:** 25 passing regression test cases (`ctest --test-dir build --output-on-failure`).
+- **Automated Validation:** 31 passing unit test cases and 6 CMake CTest test targets (100% pass rate).
 - **Complete Project Documentation:**
   - [Full 11-Chapter Project Report (Section 24 Format)](docs/final_project_report.md)
   - [User Instructions & Manual](docs/user_guide.md)
   - [Review 3 Presentation & Viva Preparation Guide](docs/final_presentation.md)
+  - [Review 3 Presentation Deck (PPTX)](docs/review3.pptx)
+  - [Final Report Printable PDF](docs/final_project_report.pdf)
 
 ## Known Limitations & Future Enhancements
 

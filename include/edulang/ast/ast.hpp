@@ -37,6 +37,7 @@ struct NameExpr : Expr {
         this->span = span;
     }
     std::string name;
+    std::string storage_name{};
 };
 
 struct BinaryExpr : Expr {
@@ -72,6 +73,7 @@ struct DeclarationStmt : Stmt {
         : Stmt{span}, name(std::move(name)), value(std::move(value)), name_span(name_span) {}
 
     std::string name;
+    std::string storage_name{};
     ExprPtr value;
     SourceSpan name_span{};
 };
@@ -81,6 +83,7 @@ struct AssignmentStmt : Stmt {
         : Stmt{span}, name(std::move(name)), value(std::move(value)), name_span(name_span) {}
 
     std::string name;
+    std::string storage_name{};
     ExprPtr value;
     SourceSpan name_span{};
 };

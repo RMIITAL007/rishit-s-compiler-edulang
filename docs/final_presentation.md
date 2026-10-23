@@ -44,17 +44,25 @@
 
 ### Slide 7: Intermediate Representation & Optimization
 - **Three-Address Code (TAC):** Virtual temporaries (`t0`, `t1`, ...), labels, conditional branches (`jump_if_false`), and memory loads/stores.
-- **Optimizer:** Constant folding over TAC instructions, tracking instructions folded and percentage efficiency improvement.
+- **Optimizer:** Constant folding over TAC instructions, tracking instructions folded and the percentage of TAC instructions optimized via constant folding.
 
-### Slide 8: Target Code Generation & Runtime Engine
-- **Target Pseudo-Assembly:** `MOV`, `ADD`, `SUB`, `JUMP`, `PRINT`.
-- **Virtual Machine:** Executes linearized TAC instructions with runtime safety checks (traps division by zero with source coordinates).
+### Slide 8: Intermediate Representation & Optimization
+- **Three-Address Code (TAC):** Virtual temporaries, labels, conditional branches, and resolved storage names.
+- **Optimizer:** Checked constant folding over TAC instructions with tracked metrics.
 
-### Slide 9: Testing, Results & Benchmark
-- **25 Automated Tests (100% CTest Pass Rate)**
-- **High-Resolution Performance Benchmark:** Sub-millisecond end-to-end compilation with breakdown across all 7 execution stages.
+### Slide 9: Target Code Generation & Runtime Engine
+- **Target Pseudo-Assembly:** `MOV`, `ADD`, `SUB`, `JMP`, `PRINT`.
+- **Virtual Machine:** Executes optimized TAC instructions and reports runtime diagnostics such as division by zero.
 
-### Slide 10: Conclusion & Future Scope
+### Slide 10: Diagnostics & Test Verification
+- **31 Automated Unit Tests & 6 Registered CTest Targets (100% Pass Rate)**
+- **Educational Diagnostics:** Source spans, carets, and actionable hints across lexical, syntax, semantic, and runtime failures.
+
+### Slide 11: Performance & Known Limitations
+- **High-Resolution Benchmark:** Phase breakdown and constant-folding metrics via `compiler bench`.
+- **Scope:** Pseudo-assembly target, `int`/`bool` types, and constant folding only.
+
+### Slide 12: Conclusion & Future Scope
 - User-defined functions, float/string data types, and LLVM backend integration.
 
 ---
@@ -101,7 +109,7 @@ We chose **Three-Address Code (TAC)**. TAC linearizes the tree structure of the 
 
 ### Q4: How does your constant folding optimization pass operate?
 **Answer:**  
-The optimizer inspects the sequence of TAC instructions. It maintains an active map of temporaries bound to constant integers or booleans. When it encounters an operation where both operands are known constants (e.g., `ADD t2, t0, t1` where `t0=10` and `t1=20`), it computes the result at compile time and emits `LOAD_CONST t2, 30`. When encountering control-flow jumps or labels, the constant map is invalidated to prevent unsafe cross-block propagation. It also records statistics on instructions folded and percentage instruction reduction.
+The optimizer inspects the sequence of TAC instructions. It maintains an active map of temporaries bound to constant integers or booleans. When it encounters an operation where both operands are known constants (e.g., `ADD t2, t0, t1` where `t0=10` and `t1=20`), it computes the result at compile time and emits `LOAD_CONST t2, 30`. When encountering control-flow jumps or labels, the constant map is invalidated to prevent unsafe cross-block propagation. It also records statistics on instructions folded and the percentage of TAC instructions optimized via constant folding (`constants_folded / instructions_before`, evaluating to 5.9% in the benchmark where 1 of 17 instructions is folded into a constant load).
 
 ### Q5: How do your educational diagnostics differ from typical compilers?
 **Answer:**  

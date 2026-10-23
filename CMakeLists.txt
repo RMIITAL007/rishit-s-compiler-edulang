@@ -36,3 +36,33 @@ add_executable(compiler_tests
 )
 
 add_test(NAME compiler_tests COMMAND compiler_tests)
+
+add_test(NAME compiler_symbols_scopes
+    COMMAND ${CMAKE_COMMAND}
+        -DCOMPILER=$<TARGET_FILE:compiler>
+        -DSOURCE_FILE=${CMAKE_SOURCE_DIR}/tests/symbols_scopes.edu
+        -P ${CMAKE_SOURCE_DIR}/tests/verify_symbols_output.cmake)
+
+add_test(NAME compiler_benchmark_valid
+    COMMAND compiler bench ${CMAKE_SOURCE_DIR}/examples/hello.edu)
+
+add_test(NAME compiler_benchmark_runtime_error
+    COMMAND ${CMAKE_COMMAND}
+        -DCOMPILER=$<TARGET_FILE:compiler>
+        -DSOURCE_FILE=${CMAKE_SOURCE_DIR}/examples/errors/runtime_error.edu
+        "-DEXPECTED_DIAGNOSTIC=division by zero"
+        -P ${CMAKE_SOURCE_DIR}/tests/verify_benchmark_failure.cmake)
+
+add_test(NAME compiler_benchmark_syntax_error
+    COMMAND ${CMAKE_COMMAND}
+        -DCOMPILER=$<TARGET_FILE:compiler>
+        -DSOURCE_FILE=${CMAKE_SOURCE_DIR}/examples/errors/syntax_error.edu
+        "-DEXPECTED_DIAGNOSTIC=expected a number"
+        -P ${CMAKE_SOURCE_DIR}/tests/verify_benchmark_failure.cmake)
+
+add_test(NAME compiler_benchmark_semantic_error
+    COMMAND ${CMAKE_COMMAND}
+        -DCOMPILER=$<TARGET_FILE:compiler>
+        -DSOURCE_FILE=${CMAKE_SOURCE_DIR}/examples/errors/semantic_error.edu
+        "-DEXPECTED_DIAGNOSTIC=undeclared variable"
+        -P ${CMAKE_SOURCE_DIR}/tests/verify_benchmark_failure.cmake)

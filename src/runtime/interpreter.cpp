@@ -4,6 +4,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "edulang/common/checked_integer.hpp"
+
 namespace edulang::runtime {
 namespace {
 
@@ -65,11 +67,18 @@ bool Interpreter::run(const ir::Program& program, DiagnosticBag& diagnostics, st
                     diagnostics.error(instruction.span, "runtime value '" + instruction.left + "' is unavailable"); return false;
                 }
                 values[instruction.result] = left_value; ++pc; break;
-            case ir::OpCode::Negate:
+            case ir::OpCode::Negate: {
                 if (!read_value(instruction.left, values, left_value) || !require_int(left_value, left)) {
                     diagnostics.error(instruction.span, "runtime negation requires int"); return false;
                 }
-                values[instruction.result] = Value{false, -left, false}; ++pc; break;
+                std::int64_t negated = 0;
+                if (!checked_integer::negate(left, negated)) {
+                    diagnostics.error(instruction.span, "integer overflow in negation",
+                                      "the result is outside the 64-bit signed integer range.");
+                    return false;
+                }
+                values[instruction.result] = Value{false, negated, false}; ++pc; break;
+            }
             case ir::OpCode::Not:
                 if (!read_value(instruction.left, values, left_value) || !require_bool(left_value, left_bool)) {
                     diagnostics.error(instruction.span, "runtime not requires bool"); return false;
@@ -82,7 +91,7 @@ bool Interpreter::run(const ir::Program& program, DiagnosticBag& diagnostics, st
             case ir::OpCode::Less:
             case ir::OpCode::LessEqual:
             case ir::OpCode::Greater:
-            case ir::OpCode::GreaterEqual:
+            case ir::OpCode::GreaterEqual: {
                 if (!read_value(instruction.left, values, left_value) || !read_value(instruction.right, values, right_value) ||
                     !require_int(left_value, left) || !require_int(right_value, right)) {
                     diagnostics.error(instruction.span, "runtime arithmetic or comparison requires int operands"); return false;
@@ -92,15 +101,33 @@ bool Interpreter::run(const ir::Program& program, DiagnosticBag& diagnostics, st
                                       "the divisor evaluated to 0 at runtime. Ensure the denominator is non-zero.");
                     return false;
                 }
-                if (instruction.op == ir::OpCode::Add) values[instruction.result] = Value{false, left + right, false};
-                if (instruction.op == ir::OpCode::Subtract) values[instruction.result] = Value{false, left - right, false};
-                if (instruction.op == ir::OpCode::Multiply) values[instruction.result] = Value{false, left * right, false};
-                if (instruction.op == ir::OpCode::Divide) values[instruction.result] = Value{false, left / right, false};
+                std::int64_t arithmetic_result = 0;
+                bool arithmetic_ok = true;
+                const char* operation = "";
+                if (instruction.op == ir::OpCode::Add) {
+                    arithmetic_ok = checked_integer::add(left, right, arithmetic_result); operation = "addition";
+                } else if (instruction.op == ir::OpCode::Subtract) {
+                    arithmetic_ok = checked_integer::subtract(left, right, arithmetic_result); operation = "subtraction";
+                } else if (instruction.op == ir::OpCode::Multiply) {
+                    arithmetic_ok = checked_integer::multiply(left, right, arithmetic_result); operation = "multiplication";
+                } else if (instruction.op == ir::OpCode::Divide) {
+                    arithmetic_ok = checked_integer::divide(left, right, arithmetic_result); operation = "division";
+                }
+                if (!arithmetic_ok) {
+                    diagnostics.error(instruction.span, std::string("integer overflow in ") + operation,
+                                      "the result is outside the 64-bit signed integer range.");
+                    return false;
+                }
+                if (instruction.op == ir::OpCode::Add || instruction.op == ir::OpCode::Subtract ||
+                    instruction.op == ir::OpCode::Multiply || instruction.op == ir::OpCode::Divide) {
+                    values[instruction.result] = Value{false, arithmetic_result, false};
+                }
                 if (instruction.op == ir::OpCode::Less) values[instruction.result] = Value{true, 0, left < right};
                 if (instruction.op == ir::OpCode::LessEqual) values[instruction.result] = Value{true, 0, left <= right};
                 if (instruction.op == ir::OpCode::Greater) values[instruction.result] = Value{true, 0, left > right};
                 if (instruction.op == ir::OpCode::GreaterEqual) values[instruction.result] = Value{true, 0, left >= right};
                 ++pc; break;
+            }
             case ir::OpCode::Equal: {
             case ir::OpCode::NotEqual:
                 if (!read_value(instruction.left, values, left_value) || !read_value(instruction.right, values, right_value) || left_value.is_bool != right_value.is_bool) {

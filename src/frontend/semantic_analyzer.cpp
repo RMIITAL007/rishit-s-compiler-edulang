@@ -1,6 +1,7 @@
 #include "edulang/frontend/semantic_analyzer.hpp"
 
 #include <string>
+#include <unordered_map>
 
 #include "edulang/frontend/symbol_table.hpp"
 
@@ -15,23 +16,24 @@ const char* type_name(ValueType type) {
 
 // Arithmetic and comparisons use int operands; logical operators and ! use bool.
 // Every expression returns its type so assignments and control-flow conditions can be checked.
-ValueType analyze_expression(const ast::Expr& expression, const SymbolTable& symbols,
+ValueType analyze_expression(ast::Expr& expression, const SymbolTable& symbols,
                             DiagnosticBag& diagnostics) {
-    if (dynamic_cast<const ast::NumberExpr*>(&expression) != nullptr) return ValueType::Int;
-    if (const auto* boolean = dynamic_cast<const ast::BooleanExpr*>(&expression)) {
+    if (dynamic_cast<ast::NumberExpr*>(&expression) != nullptr) return ValueType::Int;
+    if (const auto* boolean = dynamic_cast<ast::BooleanExpr*>(&expression)) {
         static_cast<void>(boolean);
         return ValueType::Bool;
     }
-    if (const auto* name = dynamic_cast<const ast::NameExpr*>(&expression)) {
+    if (auto* name = dynamic_cast<ast::NameExpr*>(&expression)) {
         const Symbol* symbol = symbols.lookup(name->name);
         if (symbol == nullptr) {
             diagnostics.error(name->span, "undeclared variable '" + name->name + "'",
                               "declare '" + name->name + "' first (e.g., 'int " + name->name + " = 0;').");
             return ValueType::Error;
         }
+        name->storage_name = symbol->storage_name;
         return symbol->type;
     }
-    if (const auto* unary = dynamic_cast<const ast::UnaryExpr*>(&expression)) {
+    if (auto* unary = dynamic_cast<ast::UnaryExpr*>(&expression)) {
         const ValueType operand = analyze_expression(*unary->operand, symbols, diagnostics);
         const ValueType expected = unary->op == "-" ? ValueType::Int : ValueType::Bool;
         if (operand != ValueType::Error && operand != expected) {
@@ -41,7 +43,7 @@ ValueType analyze_expression(const ast::Expr& expression, const SymbolTable& sym
         }
         return expected;
     }
-    const auto* binary = dynamic_cast<const ast::BinaryExpr*>(&expression);
+    const auto* binary = dynamic_cast<ast::BinaryExpr*>(&expression);
     if (binary == nullptr) return ValueType::Error;
 
     const ValueType left = analyze_expression(*binary->left, symbols, diagnostics);
@@ -83,9 +85,16 @@ ValueType analyze_expression(const ast::Expr& expression, const SymbolTable& sym
     return ValueType::Error;
 }
 
-void analyze_statement(const ast::Stmt& statement, SymbolTable& symbols,
-                       DiagnosticBag& diagnostics) {
-    if (const auto* declaration = dynamic_cast<const ast::DeclarationStmt*>(&statement)) {
+std::string storage_name_for(const std::string& name,
+                             std::unordered_map<std::string, std::size_t>& declaration_counts) {
+    const std::size_t count = declaration_counts[name]++;
+    return count == 0 ? name : name + "$" + std::to_string(count);
+}
+
+void analyze_statement(ast::Stmt& statement, SymbolTable& symbols,
+                       DiagnosticBag& diagnostics,
+                       std::unordered_map<std::string, std::size_t>& declaration_counts) {
+    if (auto* declaration = dynamic_cast<ast::DeclarationStmt*>(&statement)) {
         if (symbols.is_declared_in_current_scope(declaration->name)) {
             diagnostics.error(declaration->name_span, "variable '" + declaration->name + "' is already declared",
                               "choose a unique name or assign to the existing variable without re-declaring 'int'.");
@@ -95,17 +104,22 @@ void analyze_statement(const ast::Stmt& statement, SymbolTable& symbols,
                 diagnostics.error(declaration->value->span, "declaration of int requires an int expression",
                                   "the variable is typed as 'int', but the assigned expression evaluates to 'bool'.");
             }
-            static_cast<void>(symbols.declare(declaration->name, Symbol{ValueType::Int, declaration->name_span}));
+            declaration->storage_name = storage_name_for(declaration->name, declaration_counts);
+            static_cast<void>(symbols.declare(
+                declaration->name,
+                Symbol{ValueType::Int, declaration->name_span, declaration->storage_name}));
             return;
         }
         analyze_expression(*declaration->value, symbols, diagnostics);
         return;
     }
-    if (const auto* assignment = dynamic_cast<const ast::AssignmentStmt*>(&statement)) {
+    if (auto* assignment = dynamic_cast<ast::AssignmentStmt*>(&statement)) {
         const Symbol* symbol = symbols.lookup(assignment->name);
         if (symbol == nullptr) {
             diagnostics.error(assignment->name_span, "undeclared variable '" + assignment->name + "'",
                               "declare '" + assignment->name + "' before assigning to it (e.g., 'int " + assignment->name + " = 0;').");
+        } else {
+            assignment->storage_name = symbol->storage_name;
         }
         const ValueType value_type = analyze_expression(*assignment->value, symbols, diagnostics);
         if (symbol != nullptr && value_type != ValueType::Error && value_type != symbol->type) {
@@ -115,39 +129,46 @@ void analyze_statement(const ast::Stmt& statement, SymbolTable& symbols,
         }
         return;
     }
-    if (const auto* print = dynamic_cast<const ast::PrintStmt*>(&statement)) {
+    if (auto* print = dynamic_cast<ast::PrintStmt*>(&statement)) {
         analyze_expression(*print->value, symbols, diagnostics);
         return;
     }
-    if (const auto* block = dynamic_cast<const ast::BlockStmt*>(&statement)) {
+    if (auto* block = dynamic_cast<ast::BlockStmt*>(&statement)) {
         symbols.enter_scope();
-        for (const auto& nested : block->statements) analyze_statement(*nested, symbols, diagnostics);
+        for (const auto& nested : block->statements) {
+            analyze_statement(*nested, symbols, diagnostics, declaration_counts);
+        }
         symbols.exit_scope();
         return;
     }
-    if (const auto* conditional = dynamic_cast<const ast::IfStmt*>(&statement)) {
+    if (auto* conditional = dynamic_cast<ast::IfStmt*>(&statement)) {
         if (analyze_expression(*conditional->condition, symbols, diagnostics) != ValueType::Bool) {
             diagnostics.error(conditional->condition->span, "if condition must be bool",
                               "use a relational comparison (such as 'x > 0' or 'x == 1') or a boolean literal/variable.");
         }
-        analyze_statement(*conditional->then_branch, symbols, diagnostics);
-        if (conditional->else_branch) analyze_statement(*conditional->else_branch, symbols, diagnostics);
+        analyze_statement(*conditional->then_branch, symbols, diagnostics, declaration_counts);
+        if (conditional->else_branch) {
+            analyze_statement(*conditional->else_branch, symbols, diagnostics, declaration_counts);
+        }
         return;
     }
-    if (const auto* loop = dynamic_cast<const ast::WhileStmt*>(&statement)) {
+    if (auto* loop = dynamic_cast<ast::WhileStmt*>(&statement)) {
         if (analyze_expression(*loop->condition, symbols, diagnostics) != ValueType::Bool) {
             diagnostics.error(loop->condition->span, "while condition must be bool",
                               "loops require a boolean condition expression (e.g., 'i < 10') to know when to repeat.");
         }
-        analyze_statement(*loop->body, symbols, diagnostics);
+        analyze_statement(*loop->body, symbols, diagnostics, declaration_counts);
     }
 }
 
 }  // namespace
 
-void SemanticAnalyzer::analyze(const ast::Program& program, DiagnosticBag& diagnostics,
+void SemanticAnalyzer::analyze(ast::Program& program, DiagnosticBag& diagnostics,
                                SymbolTable& symbols) const {
-    for (const auto& statement : program.statements) analyze_statement(*statement, symbols, diagnostics);
+    std::unordered_map<std::string, std::size_t> declaration_counts;
+    for (const auto& statement : program.statements) {
+        analyze_statement(*statement, symbols, diagnostics, declaration_counts);
+    }
 }
 
 }  // namespace edulang

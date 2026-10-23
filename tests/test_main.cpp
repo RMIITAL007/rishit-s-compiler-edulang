@@ -1,8 +1,13 @@
 #include <iostream>
+#include <cstdint>
+#include <limits>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include "edulang/frontend/frontend.hpp"
 #include "edulang/ir/generator.hpp"
+#include "edulang/ir/ir.hpp"
 #include "edulang/ir/optimizer.hpp"
 #include "edulang/runtime/interpreter.hpp"
 #include "edulang/target/code_generator.hpp"
@@ -79,6 +84,162 @@ bool test_runtime_error() {
     edulang::runtime::Interpreter interpreter;
     return !interpreter.run(ir, diagnostics, output) && diagnostics.has_errors() &&
            diagnostics.all()[0].message == "division by zero";
+}
+
+bool test_parser_error_recovery() {
+    edulang::Frontend frontend;
+
+    edulang::DiagnosticBag missing_semicolon_diagnostics;
+    const auto missing_semicolon = frontend.analyze(
+        "int value = 1\n"
+        "print(2);\n", missing_semicolon_diagnostics);
+    if (!missing_semicolon_diagnostics.has_errors() || missing_semicolon_diagnostics.all().size() != 1 ||
+        missing_semicolon_diagnostics.all()[0].message != "expected ';' after declaration" ||
+        missing_semicolon_diagnostics.all()[0].span.start.line != 2 ||
+        missing_semicolon.program.statements.size() != 1 ||
+        dynamic_cast<const edulang::ast::PrintStmt*>(missing_semicolon.program.statements[0].get()) == nullptr) {
+        return false;
+    }
+
+    edulang::DiagnosticBag multiple_diagnostics;
+    static_cast<void>(frontend.analyze(
+        "int = 1;\n"
+        "print(1 + );\n"
+        "int value = ;\n", multiple_diagnostics));
+    if (multiple_diagnostics.all().size() != 3 ||
+        multiple_diagnostics.all()[0].span.start.line != 1 ||
+        multiple_diagnostics.all()[1].span.start.line != 2 ||
+        multiple_diagnostics.all()[2].span.start.line != 3) {
+        return false;
+    }
+
+    edulang::DiagnosticBag brace_diagnostics;
+    static_cast<void>(frontend.analyze("int value = 1;\n}\n", brace_diagnostics));
+    if (!brace_diagnostics.has_errors() || brace_diagnostics.all()[0].message != "unexpected '}'" ||
+        brace_diagnostics.all()[0].span.start.line != 2) {
+        return false;
+    }
+
+    edulang::DiagnosticBag opening_brace_diagnostics;
+    static_cast<void>(frontend.analyze("{\nint value = 1;\n", opening_brace_diagnostics));
+    if (!opening_brace_diagnostics.has_errors() ||
+        opening_brace_diagnostics.all()[0].message != "expected '}' after block") {
+        return false;
+    }
+
+    edulang::DiagnosticBag expression_diagnostics;
+    static_cast<void>(frontend.analyze("print(1 + );\n", expression_diagnostics));
+    if (!expression_diagnostics.has_errors() || expression_diagnostics.all()[0].span.start.line != 1) {
+        return false;
+    }
+
+    edulang::DiagnosticBag incomplete_diagnostics;
+    static_cast<void>(frontend.analyze("print(1\n", incomplete_diagnostics));
+    return incomplete_diagnostics.has_errors() &&
+           incomplete_diagnostics.all()[0].message == "expected ')' after print expression";
+}
+
+bool test_symbol_table_visibility() {
+    edulang::DiagnosticBag diagnostics;
+    edulang::Frontend frontend;
+    const auto result = frontend.analyze(
+        "int x = 1;\n"
+        "{ int inner = 2; int x = 3; }\n"
+        "{ int x = 4; }\n"
+        "print(x);\n", diagnostics);
+    if (diagnostics.has_errors() || result.symbols.lookup("inner") != nullptr) return false;
+
+    const edulang::Symbol* global_x = result.symbols.lookup("x");
+    const auto& entries = result.symbols.all_entries();
+    return global_x != nullptr && global_x->storage_name == "x" && entries.size() == 4 &&
+           entries[0].source_name == "x" && entries[0].symbol.storage_name == "x" &&
+           entries[0].scope_depth == 0 && entries[0].active &&
+           entries[1].source_name == "inner" && entries[1].symbol.storage_name == "inner" &&
+           entries[1].scope_depth == 1 && !entries[1].active &&
+           entries[2].source_name == "x" && entries[2].symbol.storage_name == "x$1" &&
+           entries[2].scope_depth == 1 && !entries[2].active &&
+           entries[3].source_name == "x" && entries[3].symbol.storage_name == "x$2" &&
+           entries[3].scope_depth == 1 && !entries[3].active;
+}
+
+bool test_logical_short_circuiting() {
+    const auto run_source = [](const std::string& source, bool optimized,
+                               bool expected_success, const std::string& expected_output) {
+        edulang::DiagnosticBag diagnostics;
+        edulang::Frontend frontend;
+        const auto result = frontend.analyze(source, diagnostics);
+        if (diagnostics.has_errors()) return false;
+        edulang::ir::Generator generator;
+        edulang::ir::Program program = generator.generate(result.program);
+        if (optimized) program = edulang::ir::Optimizer{}.optimize(program);
+        std::ostringstream output;
+        const bool ran = edulang::runtime::Interpreter{}.run(program, diagnostics, output);
+        return ran == expected_success && output.str() == expected_output &&
+               (expected_success ? !diagnostics.has_errors()
+                                 : diagnostics.has_errors() && diagnostics.all()[0].message == "division by zero");
+    };
+    const auto verify_both_paths = [&](const std::string& source, bool expected_success,
+                                       const std::string& expected_output) {
+        return run_source(source, false, expected_success, expected_output) &&
+               run_source(source, true, expected_success, expected_output);
+    };
+
+    return
+        // The division expressions must be skipped.
+        verify_both_paths("print(false && (1 / 0 == 0));\n", true, "false\n") &&
+        verify_both_paths("print(true || (1 / 0 == 0));\n", true, "true\n") &&
+        // These divisions must be evaluated, proving the non-short-circuit branches still run.
+        verify_both_paths("print(true && (1 / 0 == 0));\n", false, "") &&
+        verify_both_paths("print(false || (1 / 0 == 0));\n", false, "") &&
+        verify_both_paths("print((false && (1 / 0 == 0)) || (true && (2 < 3)));\n", true, "true\n") &&
+        verify_both_paths(
+            "int count = 0;\n"
+            "while (count < 2 && (true || (1 / 0 == 0))) { print(count); count = count + 1; }\n"
+            "if (false && (1 / 0 == 0)) { print(99); } else { print(2); }\n",
+            true, "0\n1\n2\n");
+}
+
+bool test_checked_integer_arithmetic() {
+    const auto expect_runtime_error = [](const edulang::ir::Program& program, bool optimized,
+                                         const std::string& expected_message) {
+        edulang::DiagnosticBag diagnostics;
+        edulang::ir::Program executable = program;
+        if (optimized) executable = edulang::ir::Optimizer{}.optimize(program);
+        std::ostringstream output;
+        const bool ran = edulang::runtime::Interpreter{}.run(executable, diagnostics, output);
+        return !ran && output.str().empty() && diagnostics.has_errors() &&
+               diagnostics.all()[0].message == expected_message;
+    };
+    const auto binary_program = [](edulang::ir::OpCode opcode, std::int64_t left, std::int64_t right) {
+        return edulang::ir::Program{{
+            {edulang::ir::OpCode::LoadConst, "left", {}, {}, left},
+            {edulang::ir::OpCode::LoadConst, "right", {}, {}, right},
+            {opcode, "result", "left", "right"},
+            {edulang::ir::OpCode::Print, {}, "result"},
+        }};
+    };
+
+    const auto minimum = std::numeric_limits<std::int64_t>::min();
+    const auto maximum = std::numeric_limits<std::int64_t>::max();
+    const std::vector<std::pair<edulang::ir::Program, std::string>> cases{
+        {binary_program(edulang::ir::OpCode::Add, maximum, 1), "integer overflow in addition"},
+        {binary_program(edulang::ir::OpCode::Subtract, minimum, 1), "integer overflow in subtraction"},
+        {binary_program(edulang::ir::OpCode::Multiply, 3037000500, 3037000500), "integer overflow in multiplication"},
+        {binary_program(edulang::ir::OpCode::Divide, 1, 0), "division by zero"},
+        {binary_program(edulang::ir::OpCode::Divide, minimum, -1), "integer overflow in division"},
+        {edulang::ir::Program{{
+            {edulang::ir::OpCode::LoadConst, "value", {}, {}, minimum},
+            {edulang::ir::OpCode::Negate, "result", "value"},
+            {edulang::ir::OpCode::Print, {}, "result"},
+        }}, "integer overflow in negation"},
+    };
+    for (const auto& [program, expected_message] : cases) {
+        if (!expect_runtime_error(program, false, expected_message) ||
+            !expect_runtime_error(program, true, expected_message)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool test_boolean_control_flow_and_scopes() {
@@ -231,6 +392,45 @@ bool test_boolean_equality() {
     return edulang::runtime::Interpreter{}.run(ir, diagnostics, output) && output.str() == "false\n";
 }
 
+bool test_scope_shadowing_execution() {
+    edulang::DiagnosticBag diagnostics;
+    edulang::Frontend frontend;
+    const auto result = frontend.analyze(
+        "int x = 10;\n{ int x = 20; print(x); }\nprint(x);\n", diagnostics);
+    if (diagnostics.has_errors()) return false;
+
+    edulang::ir::Generator generator;
+    const auto ir = generator.generate(result.program);
+    std::ostringstream output;
+    std::ostringstream tac;
+    edulang::ir::print(ir, tac);
+    std::ostringstream target;
+    edulang::target::CodeGenerator{}.generate(ir, target);
+    return edulang::runtime::Interpreter{}.run(ir, diagnostics, output) &&
+           !diagnostics.has_errors() && output.str() == "20\n10\n" &&
+           tac.str().find("store_name x$1") != std::string::npos &&
+           tac.str().find("load_name t2, x$1") != std::string::npos &&
+           target.str().find("MOV [x$1]") != std::string::npos;
+}
+
+bool test_nested_shadowing_and_assignments() {
+    edulang::DiagnosticBag diagnostics;
+    edulang::Frontend frontend;
+    const auto result = frontend.analyze(
+        "int x = 10;\n"
+        "{ int x = 20; x = x + 1; print(x); }\n"
+        "{ int x = 30; x = x + 2; print(x); }\n"
+        "print(x);\n",
+        diagnostics);
+    if (diagnostics.has_errors()) return false;
+
+    edulang::ir::Generator generator;
+    const auto ir = generator.generate(result.program);
+    std::ostringstream output;
+    return edulang::runtime::Interpreter{}.run(ir, diagnostics, output) &&
+           !diagnostics.has_errors() && output.str() == "21\n32\n10\n";
+}
+
 bool test_optimization_stats() {
     edulang::DiagnosticBag diagnostics;
     edulang::Frontend frontend;
@@ -268,6 +468,10 @@ int main() {
     const bool duplicate = test_duplicate_declaration();
     const bool execution = test_intermediate_code_and_execution();
     const bool runtime = test_runtime_error();
+    const bool parser_recovery = test_parser_error_recovery();
+    const bool symbol_visibility = test_symbol_table_visibility();
+    const bool short_circuit = test_logical_short_circuiting();
+    const bool checked_integer = test_checked_integer_arithmetic();
     const bool control_flow = test_boolean_control_flow_and_scopes();
     const bool type_scope = test_type_and_scope_errors();
     const bool optimization = test_optimization_and_target_code();
@@ -283,6 +487,8 @@ int main() {
     const bool bool_comparison = test_bool_comparison_type_error();
     const bool overflow = test_integer_overflow_literal();
     const bool bool_equality = test_boolean_equality();
+    const bool scope_shadowing = test_scope_shadowing_execution();
+    const bool nested_shadowing = test_nested_shadowing_and_assignments();
     const bool multiple = test_multiple_diagnostics();
     const bool opt_stats = test_optimization_stats();
     const bool hints = test_educational_hint_generation();
@@ -294,6 +500,10 @@ int main() {
     std::cout << "duplicate declaration: " << (duplicate ? "PASS" : "FAIL") << '\n';
     std::cout << "IR and execution: " << (execution ? "PASS" : "FAIL") << '\n';
     std::cout << "runtime error: " << (runtime ? "PASS" : "FAIL") << '\n';
+    std::cout << "parser error recovery: " << (parser_recovery ? "PASS" : "FAIL") << '\n';
+    std::cout << "symbol table visibility: " << (symbol_visibility ? "PASS" : "FAIL") << '\n';
+    std::cout << "logical short circuit: " << (short_circuit ? "PASS" : "FAIL") << '\n';
+    std::cout << "checked integer arithmetic: " << (checked_integer ? "PASS" : "FAIL") << '\n';
     std::cout << "boolean/control flow: " << (control_flow ? "PASS" : "FAIL") << '\n';
     std::cout << "type/scope errors: " << (type_scope ? "PASS" : "FAIL") << '\n';
     std::cout << "optimization/target code: " << (optimization ? "PASS" : "FAIL") << '\n';
@@ -309,11 +519,14 @@ int main() {
     std::cout << "bool comparison: " << (bool_comparison ? "PASS" : "FAIL") << '\n';
     std::cout << "integer overflow: " << (overflow ? "PASS" : "FAIL") << '\n';
     std::cout << "boolean equality: " << (bool_equality ? "PASS" : "FAIL") << '\n';
+    std::cout << "scope shadowing: " << (scope_shadowing ? "PASS" : "FAIL") << '\n';
+    std::cout << "nested shadowing and assignments: " << (nested_shadowing ? "PASS" : "FAIL") << '\n';
     std::cout << "multiple diagnostics: " << (multiple ? "PASS" : "FAIL") << '\n';
     std::cout << "optimization statistics: " << (opt_stats ? "PASS" : "FAIL") << '\n';
     std::cout << "educational hints: " << (hints ? "PASS" : "FAIL") << '\n';
-    return valid && lexical && syntax && undeclared && duplicate && execution && runtime &&
+    return valid && lexical && syntax && undeclared && duplicate && execution && runtime && parser_recovery && symbol_visibility && short_circuit && checked_integer &&
             control_flow && type_scope && optimization && else_branch && nested_while && nested_if &&
             empty_block && missing_brace && missing_parenthesis && unterminated_comment && int_bool &&
-            not_int && bool_comparison && overflow && bool_equality && multiple && opt_stats && hints ? 0 : 1;
+            not_int && bool_comparison && overflow && bool_equality && scope_shadowing && nested_shadowing &&
+            multiple && opt_stats && hints ? 0 : 1;
 }

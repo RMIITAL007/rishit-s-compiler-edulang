@@ -60,7 +60,7 @@ The objectives of the EduLang Compiler Project across all three development phas
 6. **Target Code Generation:** Synthesize readable target pseudo-assembly suitable for machine architecture study.
 7. **Virtual Machine / Interpreter:** Build a runtime interpreter that executes optimized TAC instructions with runtime safety traps (e.g., division by zero).
 8. **Educational Diagnostic Architecture:** Provide pinpoint error diagnostics with exact source line context, caret pointers (`^^^^`), and educational fix hints.
-9. **Benchmarking & Validation:** Measure phase execution times, instruction folding rates, and maintain a 100% passing test suite across 25 automated unit and regression checks.
+9. **Benchmarking & Validation:** Measure phase execution times, instruction folding rates, and maintain a 100% passing test suite across 31 automated unit checks and 6 registered CMake test targets.
 
 ---
 
@@ -153,7 +153,7 @@ High-level control structures are lowered into conditional jumps:
   ```
 
 ### 6.5 Constant Folding Optimization Pass
-The optimizer analyzes linear sequences of TAC instructions. When an operation has constant operands (e.g., `t0 = 10; t1 = 20; t2 = t0 + t1;`), the operation is evaluated at compile time and replaced with `t2 = 30;`, tracking reduction counts and percentages.
+The optimizer analyzes linear sequences of TAC instructions. When an operation has constant operands (e.g., `t0 = 10; t1 = 20; t2 = t0 + t1;`), the operation is evaluated at compile time and replaced with `t2 = 30;`, tracking folded constant counts and the proportion of instructions optimized.
 
 ---
 
@@ -171,7 +171,7 @@ The optimizer analyzes linear sequences of TAC instructions. When an operation h
 | **Three-Address Code (TAC)** | Linearized intermediate representation with virtual temporaries | `ir/` |
 | **Control Flow Graphs (CFG)** | Labels and conditional/unconditional branch instructions | `generator.cpp` |
 | **Constant Folding** | Compile-time expression pre-computation and simplification | `optimizer.cpp` |
-| **Instruction Synthesis** | Target pseudo-assembly generation (`MOV`, `ADD`, `JUMP`) | `code_generator.cpp` |
+| **Instruction Synthesis** | Target pseudo-assembly generation (`MOV`, `ADD`, `JMP`) | `code_generator.cpp` |
 | **Virtual Machine Execution** | Simulation of register states and memory environments | `interpreter.cpp` |
 
 ---
@@ -210,8 +210,8 @@ Primary        ::= IntegerLiteral | "true" | "false" | Identifier | "(" Expressi
 
 ## Chapter 9: Testing, Results, and Performance Evaluation
 
-### 9.1 Test Suite Summary (25/25 Tests Passing)
-EduLang incorporates 25 automated unit and regression tests in [`tests/test_main.cpp`](file:///Users/rishitmittal/rishit'scompiler/tests/test_main.cpp):
+### 9.1 Test Suite Summary (31/31 Unit Tests & 6/6 CTest Targets Passing)
+EduLang incorporates 31 automated unit and regression tests in [`tests/test_main.cpp`](../tests/test_main.cpp) and 6 registered CMake test targets (all passing with 100% success rate):
 
 | # | Test Name | Tested Scenario | Expected Result | Pass/Fail |
 |:---|:---|:---|:---|:---:|
@@ -222,24 +222,30 @@ EduLang incorporates 25 automated unit and regression tests in [`tests/test_main
 | 5 | `duplicate declaration` | Redeclaration of variable in same scope | Semantic error with hint | **PASS** |
 | 6 | `IR and execution` | Lowering to TAC and evaluating expressions | Execution matches expected output | **PASS** |
 | 7 | `runtime error` | Division by zero (`10 / 0`) | Trapped runtime error | **PASS** |
-| 8 | `boolean/control flow` | `while` loops, `if-else`, boolean conditions | Correct loop and branch outputs | **PASS** |
-| 9 | `type/scope errors` | Assigning boolean to integer variable | Semantic type error | **PASS** |
-| 10 | `optimization/target code` | Constant folding and pseudo-assembly generation | Target assembly generated | **PASS** |
-| 11 | `else branch` | Verification of false-branch execution | Executes else statement | **PASS** |
-| 12 | `nested while loops` | Two-level nested counter loops | Correct Cartesian product outputs | **PASS** |
-| 13 | `nested if blocks` | Multi-level nested conditional logic | Branch selection matches logic | **PASS** |
-| 14 | `empty block` | Empty `{}` block handling | No-op, clean parse | **PASS** |
-| 15 | `missing closing brace` | Unbalanced `{` | Syntax error: expected `}` | **PASS** |
-| 16 | `missing closing paren` | Unbalanced `(` | Syntax error: expected `)` | **PASS** |
-| 17 | `unterminated comment` | Unclosed `/*` comment block | Lexical error diagnostic | **PASS** |
-| 18 | `int plus bool` | Type mismatch in addition (`1 + true`) | Semantic error: requires `int` | **PASS** |
-| 19 | `not on int` | Negation operator on number (`!1`) | Semantic error: requires `bool` | **PASS** |
-| 20 | `bool comparison` | Relational operator on booleans (`true < false`) | Semantic error: requires `int` | **PASS** |
-| 21 | `integer overflow` | Literal exceeding 64-bit integer limit | Lexical overflow error | **PASS** |
-| 22 | `boolean equality` | Boolean equality evaluation (`true == false`) | Evaluates to `false` | **PASS** |
-| 23 | `multiple diagnostics` | Multiple errors in one file | Accumulates all diagnostics | **PASS** |
-| 24 | `optimization statistics` | Verifies `instructions_before` and `constants_folded` | Pre-calculates constant expressions | **PASS** |
-| 25 | `educational hints` | Checks presence of `= hint:` in rendered diagnostics | Outputs actionable fix hints | **PASS** |
+| 8 | `parser error recovery` | Synchronizing parser state past syntax error | Recovers and catches subsequent errors | **PASS** |
+| 9 | `symbol table visibility` | Verifies variable lookup across nested scopes | Scoped symbol table lookups | **PASS** |
+| 10 | `logical short circuit` | Short-circuit evaluation of `&&` and `\|\|` | Skips faulty division branch | **PASS** |
+| 11 | `checked integer arithmetic` | 64-bit integer overflow traps in arithmetic ops | Trapped overflow diagnostic | **PASS** |
+| 12 | `boolean/control flow` | `while` loops, `if-else`, boolean conditions | Correct loop and branch outputs | **PASS** |
+| 13 | `type/scope errors` | Assigning boolean to integer variable | Semantic type error | **PASS** |
+| 14 | `optimization/target code` | Constant folding and pseudo-assembly generation | Target assembly generated | **PASS** |
+| 15 | `else branch` | Verification of false-branch execution | Executes else statement | **PASS** |
+| 16 | `nested while loops` | Two-level nested counter loops | Correct Cartesian product outputs | **PASS** |
+| 17 | `nested if blocks` | Multi-level nested conditional logic | Branch selection matches logic | **PASS** |
+| 18 | `empty block` | Empty `{}` block handling | No-op, clean parse | **PASS** |
+| 19 | `missing closing brace` | Unbalanced `{` | Syntax error: expected `}` | **PASS** |
+| 20 | `missing closing paren` | Unbalanced `(` | Syntax error: expected `)` | **PASS** |
+| 21 | `unterminated comment` | Unclosed `/*` comment block | Lexical error diagnostic | **PASS** |
+| 22 | `int plus bool` | Type mismatch in addition (`1 + true`) | Semantic error: requires `int` | **PASS** |
+| 23 | `not on int` | Negation operator on number (`!1`) | Semantic error: requires `bool` | **PASS** |
+| 24 | `bool comparison` | Relational operator on booleans (`true < false`) | Semantic error: requires `int` | **PASS** |
+| 25 | `integer overflow` | Literal exceeding 64-bit integer limit | Lexical overflow error | **PASS** |
+| 26 | `boolean equality` | Boolean equality evaluation (`true == false`) | Evaluates to `false` | **PASS** |
+| 27 | `scope shadowing` | Inner block declaration shadows outer variable | Preserves outer variable | **PASS** |
+| 28 | `nested shadowing & assigns` | Sequential nested blocks with local assignments | Independent local state | **PASS** |
+| 29 | `multiple diagnostics` | Multiple errors in one file | Accumulates all diagnostics | **PASS** |
+| 30 | `optimization statistics` | Verifies `instructions_before` and `constants_folded` | Pre-calculates constant expressions | **PASS** |
+| 31 | `educational hints` | Checks presence of `= hint:` in rendered diagnostics | Outputs actionable fix hints | **PASS** |
 
 ### 9.2 Benchmark & Performance Results
 Performance was evaluated across distinct programs using the new high-resolution `bench` mode:
@@ -277,6 +283,8 @@ Program Execution Output:
 6
 ```
 
+*(Note on Optimization Metric: The 5.9% metric represents the proportion of TAC instructions containing folded constant expressions, computed as `constants_folded / instructions_before` = 1 / 17 = 5.9%. Because constant folding replaces arithmetic operations with pre-calculated constant loads rather than deleting instructions in this pass, the overall instruction count remains 17 before and after.)*
+
 ---
 
 ## Chapter 10: Conclusion
@@ -286,7 +294,7 @@ The EduLang Compiler project successfully fulfills all objectives outlined in th
 2. Formatted diagnostics across lexical, syntax, semantic, and runtime levels with visual carets and actionable educational hints.
 3. Created an intermediate three-address code representation paired with constant-folding optimization and readable pseudo-assembly generation.
 4. Delivered an interactive command-line interface supporting stage-by-stage inspection (`tokens`, `ast`, `symbols`, `ir`, `target`, `run`, `bench`).
-5. Validated 100% correctness through 25 automated CTest regression cases.
+5. Validated 100% correctness through 31 automated unit tests and 6 registered CTest regression targets.
 
 ---
 

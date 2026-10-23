@@ -8,7 +8,7 @@ namespace edulang {
 
 class SemanticAnalyzer {
 public:
-    void analyze(const ast::Program& program, DiagnosticBag& diagnostics, SymbolTable& symbols) const;
+    void analyze(ast::Program& program, DiagnosticBag& diagnostics, SymbolTable& symbols) const;
 };
 
 }  // namespace edulang

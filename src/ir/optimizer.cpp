@@ -4,6 +4,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "edulang/common/checked_integer.hpp"
+
 namespace edulang::ir {
 namespace {
 
@@ -26,11 +28,16 @@ bool binary_constant(OpCode opcode, const Constant& left, const Constant& right,
         return true;
     }
     if (left.is_bool || right.is_bool) return false;
-    if (opcode == OpCode::Divide && right.integer == 0) return false;
-    if (opcode == OpCode::Add) result = {false, left.integer + right.integer, false};
-    else if (opcode == OpCode::Subtract) result = {false, left.integer - right.integer, false};
-    else if (opcode == OpCode::Multiply) result = {false, left.integer * right.integer, false};
-    else if (opcode == OpCode::Divide) result = {false, left.integer / right.integer, false};
+    std::int64_t integer_result = 0;
+    if (opcode == OpCode::Add && checked_integer::add(left.integer, right.integer, integer_result)) {
+        result = {false, integer_result, false};
+    } else if (opcode == OpCode::Subtract && checked_integer::subtract(left.integer, right.integer, integer_result)) {
+        result = {false, integer_result, false};
+    } else if (opcode == OpCode::Multiply && checked_integer::multiply(left.integer, right.integer, integer_result)) {
+        result = {false, integer_result, false};
+    } else if (opcode == OpCode::Divide && checked_integer::divide(left.integer, right.integer, integer_result)) {
+        result = {false, integer_result, false};
+    }
     else if (opcode == OpCode::Less) result = {true, 0, left.integer < right.integer};
     else if (opcode == OpCode::LessEqual) result = {true, 0, left.integer <= right.integer};
     else if (opcode == OpCode::Greater) result = {true, 0, left.integer > right.integer};
@@ -56,14 +63,23 @@ OptimizedProgram Optimizer::optimize_with_stats(const Program& program) const {
             const auto found = constants.find(instruction.left);
             if (found != constants.end()) {
                 if (instruction.op == OpCode::Negate && !found->second.is_bool) {
-                    output = {OpCode::LoadConst, instruction.result, {}, {}, -found->second.integer, false, {}, instruction.span};
-                    constants[instruction.result] = {false, -found->second.integer, false};
-                    ++result.stats.constants_folded;
+                    std::int64_t negated = 0;
+                    if (checked_integer::negate(found->second.integer, negated)) {
+                        output = {OpCode::LoadConst, instruction.result, {}, {}, negated, false, {}, instruction.span};
+                        constants[instruction.result] = {false, negated, false};
+                        ++result.stats.constants_folded;
+                    } else {
+                        constants.erase(instruction.result);
+                    }
                 } else if (instruction.op == OpCode::Not && found->second.is_bool) {
                     output = {OpCode::LoadBool, instruction.result, {}, {}, 0, !found->second.boolean, {}, instruction.span};
                     constants[instruction.result] = {true, 0, !found->second.boolean};
                     ++result.stats.constants_folded;
+                } else {
+                    constants.erase(instruction.result);
                 }
+            } else {
+                constants.erase(instruction.result);
             }
         } else if (instruction.op == OpCode::Add || instruction.op == OpCode::Subtract || instruction.op == OpCode::Multiply ||
                    instruction.op == OpCode::Divide || instruction.op == OpCode::Equal || instruction.op == OpCode::NotEqual ||

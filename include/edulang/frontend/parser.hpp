@@ -37,6 +37,7 @@ private:
     const Token& peek() const;
     const Token& previous() const;
     bool at_end() const;
+    bool is_statement_start() const;
     void error(const Token& token, const char* message, const char* hint = "");
     void synchronize();
 
@@ -45,4 +46,4 @@ private:
     std::size_t current_{0};
 };
 
-}  
+}  // namespace edulang
