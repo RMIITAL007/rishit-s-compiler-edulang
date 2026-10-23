@@ -219,7 +219,43 @@ To display each check individually during the review:
 ./build/compiler_tests
 ```
 
+## Interactive Web Playground & Visualizer
+
+A professional, faculty-facing web workbench built with React, Vite, and TypeScript is included in the `web/` directory. It connects directly to the real C++20 compiler via a sandboxed Node.js adapter.
+
+### Features
+- **Monaco-Style Source Editor:** Synchronized line-number gutter, syntax formatting, and pre-loaded sample selector.
+- **7 Stage Visualizers:**
+  - **Tokens:** Searchable table with coordinate tracking (`line:col`) and token-type categorization.
+  - **AST:** Recursive, collapsible $N$-ary tree with *Expand All* / *Collapse All* controls.
+  - **Semantic Analysis:** Verification checkpoint cards and formatted diagnostic error carets (`^`) with educational hints (`= hint:`).
+  - **Symbol Table:** Scoped table distinguishing active identifiers from out-of-scope shadowed bindings (`x$1`).
+  - **Intermediate Code (TAC):** Line-numbered quad listings with jump label badges and copy utility.
+  - **Optimization:** Intra-block constant-folding statistics and expression ratio metrics.
+  - **Target Code:** EduLang pseudo-assembly viewer with opcode highlighting (`MOV`, `CMPLT`, `JZ`, `PRINT`).
+  - **Console Output:** Dedicated runtime stdout box for VM execution results alongside complete raw compiler streams.
+- **Subprocess Sandbox Security:** Direct argument passing (no shell) with a strict 2-second timeout protecting against infinite loops.
+
+### Running the Web Playground
+```bash
+# 1. Navigate to the web application directory
+cd web
+
+# 2. Start both the backend (port 5001) and Vite frontend (port 3000)
+npm run dev
+
+# 3. Open in your browser:
+# http://localhost:3000
+```
+
+### Scripted 3-Minute Faculty Demonstration
+1. **Full Pipeline Compilation:** Run the default `arithmetic_control.edu` sample. Show that `1 + 2 = 3` is evaluated at compile time, inspect the AST and pseudo-assembly, and show runtime output `6`.
+2. **Lexical Variable Shadowing:** Select `symbols_scopes.edu`. Open the **Symbol Table** tab and point out how inner `x` in nested blocks is assigned storage keys `x$1` and `x$2`, preserving outer `x = 1`.
+3. **Diagnostic Carets & Educational Hints:** Select `syntax_error.edu` or `semantic_error.edu`. Open the **Semantic Analysis** tab to demonstrate visual caret pointers (`^`) and actionable `= hint:` guidance.
+4. **Sandbox Circuit Breaker:** Select `Infinite Loop (Subprocess Timeout Guard)`. Click compile and demonstrate that the backend kills the runaway loop at exactly 2,000ms without freezing the server.
+
 ## Phase 3 / Final Review Checklist (100% Complete)
+
 
 - **Complete Working Pipeline:** Lexer, parser, AST, scoped symbol table, semantic type checker, TAC IR generator, constant-folding optimizer, pseudo-assembly target generator, and runtime interpreter VM.
 - **Educational Pinpoint Diagnostics:** Detailed error reporting answering WHERE (line:col + visual carets `^^^^`), WHAT (explicit mistake description), and HOW TO FIX (`= hint:`).

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Editor } from './components/Editor';
 import { ResultsPanel } from './components/ResultsPanel';
+import { ArchitectureModal } from './components/ArchitectureModal';
 import { SAMPLES, DEFAULT_SAMPLE } from './samples';
 import { CompileResponse, CompileStatus, StageTab } from './types';
 
@@ -13,6 +14,8 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<StageTab>('output');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isBackendReady, setIsBackendReady] = useState<boolean>(false);
+  const [isArchitectureOpen, setIsArchitectureOpen] = useState<boolean>(false);
+
 
   // Check backend health on initial mount
   useEffect(() => {
@@ -100,7 +103,11 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-container">
-      <Header status={status} isBackendReady={isBackendReady} />
+      <Header
+        status={status}
+        isBackendReady={isBackendReady}
+        onOpenArchitecture={() => setIsArchitectureOpen(true)}
+      />
 
       <main className="workbench">
         <Editor
@@ -121,6 +128,11 @@ export const App: React.FC = () => {
           errorMessage={errorMessage}
         />
       </main>
+
+      <ArchitectureModal
+        isOpen={isArchitectureOpen}
+        onClose={() => setIsArchitectureOpen(false)}
+      />
     </div>
   );
 };

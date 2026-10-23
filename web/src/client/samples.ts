@@ -15,6 +15,22 @@ if (a < 5) {
 `,
   },
   {
+    id: 'scope_shadowing',
+    title: 'Lexical Variable Shadowing (symbols_scopes.edu)',
+    category: 'Standard Programs',
+    description: 'Demonstrates block scoping and variable shadowing. Inner x is disambiguated as x$1 and x$2 in Symbol Table and TAC.',
+    code: `int x = 1;
+{
+    int inner = 2;
+    int x = 3;
+}
+{
+    int x = 4;
+}
+print(x);
+`,
+  },
+  {
     id: 'hello',
     title: 'Variable Addition (hello.edu)',
     category: 'Standard Programs',
@@ -23,6 +39,7 @@ if (a < 5) {
 int b = 20;
 print(a + b);
 `,
+
   },
   {
     id: 'nested_loops',

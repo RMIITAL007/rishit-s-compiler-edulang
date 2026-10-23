@@ -1,13 +1,14 @@
-import React from 'react';
-import { Cpu, CheckCircle2, AlertCircle, Clock, ServerOff, Loader2 } from 'lucide-react';
+import { Cpu, CheckCircle2, AlertCircle, Clock, ServerOff, Loader2, BookOpen } from 'lucide-react';
 import { CompileStatus } from '../types';
 
 interface HeaderProps {
   status: CompileStatus;
   isBackendReady: boolean;
+  onOpenArchitecture?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ status, isBackendReady }) => {
+export const Header: React.FC<HeaderProps> = ({ status, isBackendReady, onOpenArchitecture }) => {
+
   const renderStatus = () => {
     switch (status) {
       case 'compiling':
@@ -73,8 +74,19 @@ export const Header: React.FC<HeaderProps> = ({ status, isBackendReady }) => {
       </div>
 
       <div className="header-actions">
+        {onOpenArchitecture && (
+          <button
+            className="btn btn-secondary architecture-btn"
+            onClick={onOpenArchitecture}
+            title="View the 9-stage compiler pipeline and grammar cheat sheet"
+          >
+            <BookOpen size={14} className="text-cyan-400" />
+            <span>Architecture Guide</span>
+          </button>
+        )}
         {renderStatus()}
       </div>
+
     </header>
   );
 };
