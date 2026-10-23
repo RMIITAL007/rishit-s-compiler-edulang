@@ -8,5 +8,25 @@
   "clangd.arguments": [
     "--compile-commands-dir=${workspaceFolder}/build",
     "--background-index"
+  ],
+  "cSpell.words": [
+    "BCSE",
+    "ctest",
+    "ebnf",
+    "EBNF",
+    "edulang",
+    "Genever",
+    "Kaufmann",
+    "LALR",
+    "linearizes",
+    "lvalue",
+    "Mittal",
+    "Nystrom",
+    "Rishit",
+    "rustc",
+    "Sethi",
+    "subexpression",
+    "Torczon",
+    "Ullman"
   ]
 }
