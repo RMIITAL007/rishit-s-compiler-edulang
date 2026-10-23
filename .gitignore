@@ -2,3 +2,7 @@
 .DS_Store
 compile_commands.json
 .clangd/
+
+# Web interface
+web/node_modules/
+web/dist/
