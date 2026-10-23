@@ -116,11 +116,27 @@ Target pseudo-assembly:
 ./build/compiler target examples/hello.edu
 ```
 
-The default command prints all available stages:
+Performance benchmark and optimization profiling:
+
+```bash
+./build/compiler bench examples/arithmetic_control.edu
+```
+
+The default command prints all pipeline stages and pass/fail statuses:
 
 ```bash
 ./build/compiler examples/hello.edu
 ```
+
+For an exact, source-located error demonstration, run:
+
+```bash
+./build/compiler examples/errors/lexical_error.edu
+```
+
+The compiler reports the source file, line, column, source line, and a caret at
+the faulty character or expression. It also reports each pipeline stage as
+`PASS`, `FAIL`, or `SKIP`.
 
 ## Sample Input and Output
 
@@ -180,7 +196,10 @@ PRINT t4
 
 ## Tests
 
-The test source is [tests/test_main.cpp](tests/test_main.cpp). It covers valid programs, lexical errors, syntax errors, semantic errors, runtime errors, IR execution, boolean expressions, control flow, nested scopes, optimization, target-code generation, and edge cases.
+The test source is [tests/test_main.cpp](tests/test_main.cpp). It contains 25
+checks for valid programs; lexical, syntax, semantic, and runtime errors; IR
+execution; boolean expressions; control flow; nested scopes; optimization;
+target-code generation; and edge cases.
 
 Run the registered test target with:
 
@@ -188,10 +207,25 @@ Run the registered test target with:
 ctest --test-dir build --output-on-failure
 ```
 
-## Known Limitations
+To display each check individually during the review:
+
+```bash
+./build/compiler_tests
+```
+
+## Phase 3 / Final Review Checklist (100% Complete)
+
+- **Complete Working Pipeline:** Lexer, parser, AST, scoped symbol table, semantic type checker, TAC IR generator, constant-folding optimizer, pseudo-assembly target generator, and runtime interpreter VM.
+- **Educational Pinpoint Diagnostics:** Detailed error reporting answering WHERE (line:col + visual carets `^^^^`), WHAT (explicit mistake description), and HOW TO FIX (`= hint:`).
+- **Performance Evaluation & Benchmarks:** Built-in high-resolution profiling via `./build/compiler bench <file>` reporting nanosecond/microsecond phase latencies and constant folding reduction percentages.
+- **Automated Validation:** 25 passing regression test cases (`ctest --test-dir build --output-on-failure`).
+- **Complete Project Documentation:**
+  - [Full 11-Chapter Project Report (Section 24 Format)](docs/final_project_report.md)
+  - [User Instructions & Manual](docs/user_guide.md)
+  - [Review 3 Presentation & Viva Preparation Guide](docs/final_presentation.md)
+
+## Known Limitations & Future Enhancements
 
 - Target code is readable pseudo-assembly, not native x86 or ARM machine code.
-- The type system currently supports only `int` and `bool`.
-- There are no functions, strings, arrays, or user-defined types.
-- Optimization currently focuses on constant folding.
-- The project has one CTest executable containing the test cases.
+- The type system currently supports `int` and `bool` (functions, arrays, and strings can be added in future extensions).
+- Optimization currently focuses on constant folding across TAC instructions.

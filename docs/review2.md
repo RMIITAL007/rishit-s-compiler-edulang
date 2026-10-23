@@ -83,7 +83,7 @@ build/compiler examples/hello.edu
 
 ## 4. Testing
 
-`tests/test_main.cpp` checks:
+`tests/test_main.cpp` contains 25 checks covering:
 
 - valid declarations, assignments, and print statements
 - lexical errors
@@ -95,7 +95,41 @@ build/compiler examples/hello.edu
 - boolean expressions and control flow
 - nested-scope and type errors
 - optimization and target-code generation
+- else branches, nested `while` loops, nested `if` blocks, and empty blocks
+- missing closing braces and parentheses
+- unterminated block comments, integer-plus-boolean errors, unary `!` type
+  errors, boolean comparison errors, integer overflow, boolean equality, and
+  multiple diagnostics
 
-## 5. Review 2 Completion Status
+Run all checks with:
+
+```text
+ctest --test-dir build --output-on-failure
+```
+
+To display all 25 pass/fail results during the review:
+
+```text
+build/compiler_tests
+```
+
+## 5. Review Demonstration
+
+Use the following sequence during Review 2:
+
+```text
+cmake -S . -B build
+cmake --build build
+build/compiler_tests
+build/compiler examples/nested_boolean.edu
+build/compiler examples/errors/lexical_error.edu
+```
+
+The valid example displays pipeline status for lexical analysis, syntax
+analysis, semantic analysis, IR generation and optimization, target-code
+generation, and program execution. The error example displays the failing
+stage and the exact source file, line, column, source line, and caret.
+
+## 6. Review 2 Completion Status
 
 The current implementation covers the practical Review 2 requirements: core implementation modules, working source code, functional demonstrations, test cases, intermediate compiler results, module-wise separation, type checking for the supported integer and boolean types, nested block scopes, control flow, optimization, and target pseudo-code generation. Native machine-code generation and additional language types remain future extensions.

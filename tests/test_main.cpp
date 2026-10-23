@@ -231,6 +231,28 @@ bool test_boolean_equality() {
     return edulang::runtime::Interpreter{}.run(ir, diagnostics, output) && output.str() == "false\n";
 }
 
+bool test_optimization_stats() {
+    edulang::DiagnosticBag diagnostics;
+    edulang::Frontend frontend;
+    const auto result = frontend.analyze("int a = 1 + 2 * 3;\nprint(a);\n", diagnostics);
+    if (diagnostics.has_errors()) return false;
+    edulang::ir::Generator generator;
+    const auto unopt = generator.generate(result.program);
+    edulang::ir::Optimizer optimizer;
+    const auto opt_res = optimizer.optimize_with_stats(unopt);
+    return opt_res.stats.instructions_before > 0 &&
+           opt_res.stats.constants_folded >= 2;
+}
+
+bool test_educational_hint_generation() {
+    edulang::DiagnosticBag diagnostics;
+    edulang::Frontend frontend;
+    const std::string source = "print(unknown_var);\n";
+    static_cast<void>(frontend.analyze(source, diagnostics));
+    const std::string rendered = diagnostics.render(source, "test.edu");
+    return rendered.find("= hint:") != std::string::npos &&
+           rendered.find("declare 'unknown_var' first") != std::string::npos;
+}
 bool test_multiple_diagnostics() {
     edulang::DiagnosticBag diagnostics;
     edulang::Frontend frontend;
@@ -262,6 +284,8 @@ int main() {
     const bool overflow = test_integer_overflow_literal();
     const bool bool_equality = test_boolean_equality();
     const bool multiple = test_multiple_diagnostics();
+    const bool opt_stats = test_optimization_stats();
+    const bool hints = test_educational_hint_generation();
 
     std::cout << "valid program: " << (valid ? "PASS" : "FAIL") << '\n';
     std::cout << "lexical error: " << (lexical ? "PASS" : "FAIL") << '\n';
@@ -273,21 +297,23 @@ int main() {
     std::cout << "boolean/control flow: " << (control_flow ? "PASS" : "FAIL") << '\n';
     std::cout << "type/scope errors: " << (type_scope ? "PASS" : "FAIL") << '\n';
     std::cout << "optimization/target code: " << (optimization ? "PASS" : "FAIL") << '\n';
-        std::cout << "else branch: " << (else_branch ? "PASS" : "FAIL") << '\n';
-        std::cout << "nested while loops: " << (nested_while ? "PASS" : "FAIL") << '\n';
-        std::cout << "nested if blocks: " << (nested_if ? "PASS" : "FAIL") << '\n';
-        std::cout << "empty block: " << (empty_block ? "PASS" : "FAIL") << '\n';
-        std::cout << "missing closing brace: " << (missing_brace ? "PASS" : "FAIL") << '\n';
-        std::cout << "missing closing parenthesis: " << (missing_parenthesis ? "PASS" : "FAIL") << '\n';
-        std::cout << "unterminated block comment: " << (unterminated_comment ? "PASS" : "FAIL") << '\n';
-        std::cout << "int plus bool: " << (int_bool ? "PASS" : "FAIL") << '\n';
-        std::cout << "not on int: " << (not_int ? "PASS" : "FAIL") << '\n';
-        std::cout << "bool comparison: " << (bool_comparison ? "PASS" : "FAIL") << '\n';
-        std::cout << "integer overflow: " << (overflow ? "PASS" : "FAIL") << '\n';
-        std::cout << "boolean equality: " << (bool_equality ? "PASS" : "FAIL") << '\n';
-        std::cout << "multiple diagnostics: " << (multiple ? "PASS" : "FAIL") << '\n';
+    std::cout << "else branch: " << (else_branch ? "PASS" : "FAIL") << '\n';
+    std::cout << "nested while loops: " << (nested_while ? "PASS" : "FAIL") << '\n';
+    std::cout << "nested if blocks: " << (nested_if ? "PASS" : "FAIL") << '\n';
+    std::cout << "empty block: " << (empty_block ? "PASS" : "FAIL") << '\n';
+    std::cout << "missing closing brace: " << (missing_brace ? "PASS" : "FAIL") << '\n';
+    std::cout << "missing closing parenthesis: " << (missing_parenthesis ? "PASS" : "FAIL") << '\n';
+    std::cout << "unterminated block comment: " << (unterminated_comment ? "PASS" : "FAIL") << '\n';
+    std::cout << "int plus bool: " << (int_bool ? "PASS" : "FAIL") << '\n';
+    std::cout << "not on int: " << (not_int ? "PASS" : "FAIL") << '\n';
+    std::cout << "bool comparison: " << (bool_comparison ? "PASS" : "FAIL") << '\n';
+    std::cout << "integer overflow: " << (overflow ? "PASS" : "FAIL") << '\n';
+    std::cout << "boolean equality: " << (bool_equality ? "PASS" : "FAIL") << '\n';
+    std::cout << "multiple diagnostics: " << (multiple ? "PASS" : "FAIL") << '\n';
+    std::cout << "optimization statistics: " << (opt_stats ? "PASS" : "FAIL") << '\n';
+    std::cout << "educational hints: " << (hints ? "PASS" : "FAIL") << '\n';
     return valid && lexical && syntax && undeclared && duplicate && execution && runtime &&
             control_flow && type_scope && optimization && else_branch && nested_while && nested_if &&
             empty_block && missing_brace && missing_parenthesis && unterminated_comment && int_bool &&
-            not_int && bool_comparison && overflow && bool_equality && multiple ? 0 : 1;
+            not_int && bool_comparison && overflow && bool_equality && multiple && opt_stats && hints ? 0 : 1;
 }

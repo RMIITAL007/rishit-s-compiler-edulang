@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -8,6 +9,9 @@
 
 #include "edulang/ast/printer.hpp"
 #include "edulang/frontend/frontend.hpp"
+#include "edulang/frontend/lexer.hpp"
+#include "edulang/frontend/parser.hpp"
+#include "edulang/frontend/semantic_analyzer.hpp"
 #include "edulang/ir/generator.hpp"
 #include "edulang/ir/ir.hpp"
 #include "edulang/ir/optimizer.hpp"
@@ -70,11 +74,126 @@ void print_skipped_stage(const char* stage) {
     std::cout << "[SKIP] " << stage << " (an earlier stage failed)\n";
 }
 
+void run_benchmark(const std::string& source, const std::string& file_name) {
+    using namespace std::chrono;
+    std::cout << "========================================================\n";
+    std::cout << "        EduLang Compiler Benchmark & Performance        \n";
+    std::cout << "========================================================\n";
+    std::cout << "Source File: " << file_name << " (" << source.size() << " bytes)\n\n";
+
+    edulang::DiagnosticBag diagnostics;
+    const auto total_start = high_resolution_clock::now();
+
+    // 1. Lexical Analysis
+    const auto lex_start = high_resolution_clock::now();
+    edulang::Lexer lexer(source, diagnostics);
+    const auto tokens = lexer.scan_tokens();
+    const auto lex_end = high_resolution_clock::now();
+    const auto lex_duration = duration_cast<nanoseconds>(lex_end - lex_start).count();
+
+    if (diagnostics.has_errors()) {
+        std::cerr << diagnostics.render(source, file_name);
+        return;
+    }
+
+    // 2. Syntax Analysis & AST Construction
+    const auto parse_start = high_resolution_clock::now();
+    edulang::Parser parser(tokens, diagnostics);
+    const auto program = parser.parse();
+    const auto parse_end = high_resolution_clock::now();
+    const auto parse_duration = duration_cast<nanoseconds>(parse_end - parse_start).count();
+
+    if (diagnostics.has_errors()) {
+        std::cerr << diagnostics.render(source, file_name);
+        return;
+    }
+
+    // 3. Semantic Analysis & Scoping
+    const auto sem_start = high_resolution_clock::now();
+    edulang::SymbolTable symbols;
+    edulang::SemanticAnalyzer analyzer;
+    analyzer.analyze(program, diagnostics, symbols);
+    const auto sem_end = high_resolution_clock::now();
+    const auto sem_duration = duration_cast<nanoseconds>(sem_end - sem_start).count();
+
+    if (diagnostics.has_errors()) {
+        std::cerr << diagnostics.render(source, file_name);
+        return;
+    }
+
+    // 4. IR Generation
+    const auto ir_start = high_resolution_clock::now();
+    edulang::ir::Generator generator;
+    const auto unoptimized_ir = generator.generate(program);
+    const auto ir_end = high_resolution_clock::now();
+    const auto ir_duration = duration_cast<nanoseconds>(ir_end - ir_start).count();
+
+    // 5. Optimization Pass
+    const auto opt_start = high_resolution_clock::now();
+    edulang::ir::Optimizer optimizer;
+    const auto opt_result = optimizer.optimize_with_stats(unoptimized_ir);
+    const auto opt_end = high_resolution_clock::now();
+    const auto opt_duration = duration_cast<nanoseconds>(opt_end - opt_start).count();
+
+    // 6. Target Code Generation
+    const auto target_start = high_resolution_clock::now();
+    std::ostringstream target_buffer;
+    edulang::target::CodeGenerator target_gen;
+    target_gen.generate(opt_result.program, target_buffer);
+    const auto target_end = high_resolution_clock::now();
+    const auto target_duration = duration_cast<nanoseconds>(target_end - target_start).count();
+
+    // 7. Runtime Execution
+    std::ostringstream runtime_buffer;
+    const auto run_start = high_resolution_clock::now();
+    edulang::runtime::Interpreter interpreter;
+    const bool run_ok = interpreter.run(opt_result.program, diagnostics, runtime_buffer);
+    const auto run_end = high_resolution_clock::now();
+    const auto run_duration = duration_cast<nanoseconds>(run_end - run_start).count();
+
+    const auto total_end = high_resolution_clock::now();
+    const auto total_duration = duration_cast<nanoseconds>(total_end - total_start).count();
+
+    std::cout << std::left << std::setw(32) << "Pipeline Stage" << std::right << std::setw(14) << "Time (us)" << std::setw(12) << "% Total" << '\n';
+    std::cout << std::string(58, '-') << '\n';
+    auto print_row = [&](const char* name, long long ns) {
+        const double us = ns / 1000.0;
+        const double pct = total_duration > 0 ? (100.0 * ns / total_duration) : 0.0;
+        std::cout << std::left << std::setw(32) << name
+                  << std::right << std::fixed << std::setprecision(2) << std::setw(14) << us
+                  << std::setw(11) << pct << "%\n";
+    };
+
+    print_row("1. Lexical Analysis", lex_duration);
+    print_row("2. Syntax Parsing & AST", parse_duration);
+    print_row("3. Semantic Analysis & Scopes", sem_duration);
+    print_row("4. TAC IR Generation", ir_duration);
+    print_row("5. Optimization Pass", opt_duration);
+    print_row("6. Target Code Generation", target_duration);
+    print_row("7. Runtime Execution", run_duration);
+    std::cout << std::string(58, '=') << '\n';
+    print_row("Total Pipeline Execution", total_duration);
+
+    std::cout << "\nOptimization Metrics:\n";
+    std::cout << "  - Tokens Generated:             " << tokens.size() << '\n';
+    std::cout << "  - Unoptimized TAC Instructions: " << opt_result.stats.instructions_before << '\n';
+    std::cout << "  - Optimized TAC Instructions:   " << opt_result.stats.instructions_after << '\n';
+    std::cout << "  - Constant Expressions Folded:  " << opt_result.stats.constants_folded << '\n';
+    const double reduction = opt_result.stats.instructions_before > 0
+        ? (100.0 * opt_result.stats.constants_folded / opt_result.stats.instructions_before)
+        : 0.0;
+    std::cout << "  - Optimization Reduction Rate:  " << std::fixed << std::setprecision(1) << reduction << "%\n";
+
+    if (run_ok) {
+        std::cout << "\nProgram Execution Output:\n" << runtime_buffer.str();
+    }
+}
+
 }  
 
 int main(int argc, char* argv[]) {
     if (argc < 2 || argc > 3) {
-        std::cerr << "Usage: compiler [tokens|ast|symbols|ir|run|target] <source-file>\n";
+        std::cerr << "Usage: compiler [tokens|ast|symbols|ir|run|target|bench] <source-file>\n";
         return 2;
     }
 
@@ -86,8 +205,8 @@ int main(int argc, char* argv[]) {
         mode = argv[1];
         file_name = argv[2];
         if (mode != "tokens" && mode != "ast" && mode != "symbols" && mode != "ir" &&
-            mode != "run" && mode != "target") {
-            std::cerr << "Mode must be 'tokens', 'ast', 'symbols', 'ir', 'run', or 'target'.\n";
+            mode != "run" && mode != "target" && mode != "bench") {
+            std::cerr << "Mode must be 'tokens', 'ast', 'symbols', 'ir', 'run', 'target', or 'bench'.\n";
             return 2;
         }
     }
@@ -96,6 +215,11 @@ int main(int argc, char* argv[]) {
     if (!read_file(file_name, source)) {
         std::cerr << "Cannot open " << file_name << '\n';
         return 2;
+    }
+
+    if (mode == "bench") {
+        run_benchmark(source, file_name);
+        return 0;
     }
 
     edulang::DiagnosticBag diagnostics;
@@ -132,9 +256,15 @@ int main(int argc, char* argv[]) {
         edulang::ir::Generator generator;
         const edulang::ir::Program unoptimized_ir = generator.generate(result.program);
         edulang::ir::Optimizer optimizer;
-        const edulang::ir::Program ir = optimizer.optimize(unoptimized_ir);
+        const auto opt_result = optimizer.optimize_with_stats(unoptimized_ir);
+        const auto& ir = opt_result.program;
         if (mode == "all") {
-            print_stage_status("IR generation and optimization", true);
+            std::cout << "[PASS] IR generation and optimization ("
+                      << opt_result.stats.instructions_after << " instructions";
+            if (opt_result.stats.constants_folded > 0) {
+                std::cout << ", " << opt_result.stats.constants_folded << " constant(s) folded";
+            }
+            std::cout << ")\n";
         }
         if (mode == "all" || mode == "ir") {
             std::cout << "Intermediate Code\n";

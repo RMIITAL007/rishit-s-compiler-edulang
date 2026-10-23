@@ -26,12 +26,12 @@ namespace {
 
 }  
 
-void DiagnosticBag::error(SourceSpan span, std::string message) {
-    diagnostics_.push_back(Diagnostic{DiagnosticSeverity::Error, span, std::move(message)});
+void DiagnosticBag::error(SourceSpan span, std::string message, std::string hint) {
+    diagnostics_.push_back(Diagnostic{DiagnosticSeverity::Error, span, std::move(message), std::move(hint)});
 }
 
-void DiagnosticBag::warning(SourceSpan span, std::string message) {
-    diagnostics_.push_back(Diagnostic{DiagnosticSeverity::Warning, span, std::move(message)});
+void DiagnosticBag::warning(SourceSpan span, std::string message, std::string hint) {
+    diagnostics_.push_back(Diagnostic{DiagnosticSeverity::Warning, span, std::move(message), std::move(hint)});
 }
 
 bool DiagnosticBag::has_errors() const {
@@ -68,6 +68,10 @@ std::string DiagnosticBag::render(std::string_view source, std::string_view sour
                                          ? (end_column - start_column)
                                          : 1;
             output << std::string(start_column, ' ') << std::string(width, '^') << '\n';
+        }
+
+        if (!diagnostic.hint.empty()) {
+            output << "  = hint: " << diagnostic.hint << '\n';
         }
     }
 

@@ -156,11 +156,13 @@ void Lexer::scan_token() {
             return;
         case '&':
             if (match('&')) add_token(TokenType::AndAnd);
-            else diagnostics_.error(SourceSpan{start_position_, position_}, "expected '&' after '&'");
+            else diagnostics_.error(SourceSpan{start_position_, position_}, "expected '&' after '&'",
+                                   "EduLang logical AND uses '&&'.");
             return;
         case '|':
             if (match('|')) add_token(TokenType::OrOr);
-            else diagnostics_.error(SourceSpan{start_position_, position_}, "expected '|' after '|'");
+            else diagnostics_.error(SourceSpan{start_position_, position_}, "expected '|' after '|'",
+                                   "EduLang logical OR uses '||'.");
             return;
         case '/':
             if (match('/')) {
@@ -180,7 +182,8 @@ void Lexer::scan_token() {
                 identifier();
             } else {
                 diagnostics_.error(SourceSpan{start_position_, position_},
-                                   std::string("unexpected character '") + character + "'");
+                                   std::string("unexpected character '") + character + "'",
+                                   "remove this character; EduLang syntax consists of keywords, identifiers, numbers, and supported operators.");
             }
             return;
     }
@@ -202,7 +205,8 @@ void Lexer::number() {
     std::int64_t value = 0;
     const auto [end, error] = std::from_chars(lexeme.data(), lexeme.data() + lexeme.size(), value);
     if (error != std::errc{} || end != lexeme.data() + lexeme.size()) {
-        diagnostics_.error(SourceSpan{start_position_, position_}, "integer literal is out of range");
+        diagnostics_.error(SourceSpan{start_position_, position_}, "integer literal is out of range",
+                           "numeric literals must fit within a 64-bit signed integer range.");
         add_token(TokenType::Number);
         return;
     }
@@ -219,7 +223,8 @@ void Lexer::block_comment() {
         static_cast<void>(advance());
     }
 
-    diagnostics_.error(SourceSpan{start_position_, position_}, "unterminated block comment");
+    diagnostics_.error(SourceSpan{start_position_, position_}, "unterminated block comment",
+                       "add '*/' to close the multi-line comment before the end of the file.");
 }
 
 void Lexer::add_token(TokenType type) {

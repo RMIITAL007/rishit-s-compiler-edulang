@@ -88,7 +88,9 @@ bool Interpreter::run(const ir::Program& program, DiagnosticBag& diagnostics, st
                     diagnostics.error(instruction.span, "runtime arithmetic or comparison requires int operands"); return false;
                 }
                 if (instruction.op == ir::OpCode::Divide && right == 0) {
-                    diagnostics.error(instruction.span, "division by zero"); return false;
+                    diagnostics.error(instruction.span, "division by zero",
+                                      "the divisor evaluated to 0 at runtime. Ensure the denominator is non-zero.");
+                    return false;
                 }
                 if (instruction.op == ir::OpCode::Add) values[instruction.result] = Value{false, left + right, false};
                 if (instruction.op == ir::OpCode::Subtract) values[instruction.result] = Value{false, left - right, false};

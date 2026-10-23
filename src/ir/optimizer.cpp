@@ -41,10 +41,10 @@ bool binary_constant(OpCode opcode, const Constant& left, const Constant& right,
 
 }  // namespace
 
-Program Optimizer::optimize(const Program& program) const {
-    // Replace constant unary and binary instruction sequences with one load.
-    // Control-flow boundaries clear the local facts to avoid unsafe propagation.
-    Program optimized;
+OptimizedProgram Optimizer::optimize_with_stats(const Program& program) const {
+    OptimizedProgram result;
+    result.stats.instructions_before = program.instructions.size();
+
     std::unordered_map<std::string, Constant> constants;
     for (const Instruction& instruction : program.instructions) {
         Instruction output = instruction;
@@ -58,9 +58,11 @@ Program Optimizer::optimize(const Program& program) const {
                 if (instruction.op == OpCode::Negate && !found->second.is_bool) {
                     output = {OpCode::LoadConst, instruction.result, {}, {}, -found->second.integer, false, {}, instruction.span};
                     constants[instruction.result] = {false, -found->second.integer, false};
+                    ++result.stats.constants_folded;
                 } else if (instruction.op == OpCode::Not && found->second.is_bool) {
                     output = {OpCode::LoadBool, instruction.result, {}, {}, 0, !found->second.boolean, {}, instruction.span};
                     constants[instruction.result] = {true, 0, !found->second.boolean};
+                    ++result.stats.constants_folded;
                 }
             }
         } else if (instruction.op == OpCode::Add || instruction.op == OpCode::Subtract || instruction.op == OpCode::Multiply ||
@@ -69,12 +71,13 @@ Program Optimizer::optimize(const Program& program) const {
                    instruction.op == OpCode::GreaterEqual || instruction.op == OpCode::And || instruction.op == OpCode::Or) {
             const auto left = constants.find(instruction.left);
             const auto right = constants.find(instruction.right);
-            Constant result;
-            if (left != constants.end() && right != constants.end() && binary_constant(instruction.op, left->second, right->second, result)) {
-                output = result.is_bool
-                    ? Instruction{OpCode::LoadBool, instruction.result, {}, {}, 0, result.boolean, {}, instruction.span}
-                    : Instruction{OpCode::LoadConst, instruction.result, {}, {}, result.integer, false, {}, instruction.span};
-                constants[instruction.result] = result;
+            Constant folded;
+            if (left != constants.end() && right != constants.end() && binary_constant(instruction.op, left->second, right->second, folded)) {
+                output = folded.is_bool
+                    ? Instruction{OpCode::LoadBool, instruction.result, {}, {}, 0, folded.boolean, {}, instruction.span}
+                    : Instruction{OpCode::LoadConst, instruction.result, {}, {}, folded.integer, false, {}, instruction.span};
+                constants[instruction.result] = folded;
+                ++result.stats.constants_folded;
             } else {
                 constants.erase(instruction.result);
             }
@@ -82,9 +85,15 @@ Program Optimizer::optimize(const Program& program) const {
                    instruction.op == OpCode::Label || instruction.op == OpCode::Jump || instruction.op == OpCode::JumpIfFalse) {
             constants.clear();
         }
-        optimized.instructions.push_back(output);
+        result.program.instructions.push_back(output);
     }
-    return optimized;
+
+    result.stats.instructions_after = result.program.instructions.size();
+    return result;
+}
+
+Program Optimizer::optimize(const Program& program) const {
+    return optimize_with_stats(program).program;
 }
 
 }  // namespace edulang::ir

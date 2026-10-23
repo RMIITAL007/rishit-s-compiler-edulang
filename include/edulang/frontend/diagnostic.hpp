@@ -21,12 +21,13 @@ struct Diagnostic {
     DiagnosticSeverity severity{DiagnosticSeverity::Error};
     SourceSpan span{};
     std::string message{};
+    std::string hint{};
 };
 
 class DiagnosticBag {
 public:
-    void error(SourceSpan span, std::string message);
-    void warning(SourceSpan span, std::string message);
+    void error(SourceSpan span, std::string message, std::string hint = "");
+    void warning(SourceSpan span, std::string message, std::string hint = "");
 
     [[nodiscard]] bool has_errors() const;
     [[nodiscard]] bool empty() const;

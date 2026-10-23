@@ -25,19 +25,34 @@ ast::StmtPtr Parser::statement() {
     if (match(TokenType::KwWhile)) return while_statement();
     if (match(TokenType::LeftBrace)) return block_statement();
     if (check(TokenType::Identifier)) return assignment();
-    error(peek(), "expected 'int', 'print', 'if', 'while', or an assignment");
+    error(peek(), "expected 'int', 'print', 'if', 'while', or an assignment",
+          "valid statements begin with 'int', 'print', 'if', 'while', or a variable name.");
     synchronize();
     return nullptr;
 }
 
 ast::StmtPtr Parser::declaration() {
     const auto start = previous().span;
-    if (!match(TokenType::Identifier)) { error(peek(), "expected a variable name after 'int'"); synchronize(); return nullptr; }
+    if (!match(TokenType::Identifier)) {
+        error(peek(), "expected a variable name after 'int'",
+              "provide an identifier for the variable being declared (e.g., 'int count = 0;').");
+        synchronize();
+        return nullptr;
+    }
     const std::string name = previous().lexeme;
     const auto name_span = previous().span;
-    if (!match(TokenType::Equal)) { error(peek(), "expected '=' after variable name"); synchronize(); return nullptr; }
+    if (!match(TokenType::Equal)) {
+        error(peek(), "expected '=' after variable name",
+              "EduLang requires variable declarations to be initialized using '='.");
+        synchronize();
+        return nullptr;
+    }
     ast::ExprPtr value = expression();
-    if (!value || !match(TokenType::Semicolon)) { if (value) error(peek(), "expected ';' after declaration"); synchronize(); return nullptr; }
+    if (!value || !match(TokenType::Semicolon)) {
+        if (value) error(peek(), "expected ';' after declaration", "terminate the variable declaration with a semicolon ';'.");
+        synchronize();
+        return nullptr;
+    }
     return std::make_unique<ast::DeclarationStmt>(name, std::move(value), combine_spans(start, previous().span), name_span);
 }
 
@@ -45,18 +60,38 @@ ast::StmtPtr Parser::assignment() {
     const auto start = peek().span;
     const std::string name = advance().lexeme;
     const auto name_span = previous().span;
-    if (!match(TokenType::Equal)) { error(peek(), "expected '=' after variable name"); synchronize(); return nullptr; }
+    if (!match(TokenType::Equal)) {
+        error(peek(), "expected '=' after variable name", "assignments use '=' to assign a new value to a variable.");
+        synchronize();
+        return nullptr;
+    }
     ast::ExprPtr value = expression();
-    if (!value || !match(TokenType::Semicolon)) { if (value) error(peek(), "expected ';' after assignment"); synchronize(); return nullptr; }
+    if (!value || !match(TokenType::Semicolon)) {
+        if (value) error(peek(), "expected ';' after assignment", "terminate the assignment statement with a semicolon ';'.");
+        synchronize();
+        return nullptr;
+    }
     return std::make_unique<ast::AssignmentStmt>(name, std::move(value), combine_spans(start, previous().span), name_span);
 }
 
 ast::StmtPtr Parser::print_statement() {
     const auto start = previous().span;
-    if (!match(TokenType::LeftParen)) { error(peek(), "expected '(' after 'print'"); synchronize(); return nullptr; }
+    if (!match(TokenType::LeftParen)) {
+        error(peek(), "expected '(' after 'print'", "print syntax is 'print(expression);'.");
+        synchronize();
+        return nullptr;
+    }
     ast::ExprPtr value = expression();
-    if (!value || !match(TokenType::RightParen)) { if (value) error(peek(), "expected ')' after print expression"); synchronize(); return nullptr; }
-    if (!match(TokenType::Semicolon)) { error(peek(), "expected ';' after print statement"); synchronize(); return nullptr; }
+    if (!value || !match(TokenType::RightParen)) {
+        if (value) error(peek(), "expected ')' after print expression", "close the print argument list with a matching ')'.");
+        synchronize();
+        return nullptr;
+    }
+    if (!match(TokenType::Semicolon)) {
+        error(peek(), "expected ';' after print statement", "terminate the print statement with a semicolon ';'.");
+        synchronize();
+        return nullptr;
+    }
     return std::make_unique<ast::PrintStmt>(std::move(value), combine_spans(start, previous().span));
 }
 
@@ -179,7 +214,9 @@ ast::ExprPtr Parser::primary() {
         if (value) value->span = combine_spans(start, previous().span);
         return value;
     }
-    error(peek(), "expected a number, boolean, variable name, or '('"); return nullptr;
+    error(peek(), "expected a number, boolean, variable name, or '('",
+          "provide a valid expression value (number, boolean, variable, or '(') before this token.");
+    return nullptr;
 }
 
 bool Parser::match(TokenType type) { if (!check(type)) return false; advance(); return true; }
@@ -188,7 +225,11 @@ const Token& Parser::advance() { if (!at_end()) ++current_; return previous(); }
 const Token& Parser::peek() const { return tokens_[current_]; }
 const Token& Parser::previous() const { return tokens_[current_ - 1]; }
 bool Parser::at_end() const { return peek().type == TokenType::EndOfFile; }
-void Parser::error(const Token& token, const char* message) { diagnostics_.error(token.span, message); }
-void Parser::synchronize() { while (!at_end() && !match(TokenType::Semicolon) && !check(TokenType::RightBrace)) advance(); }
+void Parser::error(const Token& token, const char* message, const char* hint) {
+    diagnostics_.error(token.span, message, hint);
+}
+void Parser::synchronize() {
+    while (!at_end() && !match(TokenType::Semicolon) && !check(TokenType::RightBrace)) advance();
+}
 
 }  // namespace edulang
