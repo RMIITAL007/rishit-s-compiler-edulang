@@ -14,6 +14,9 @@ struct FrontendResult {
     std::vector<Token> tokens;
     ast::Program program;
     SymbolTable symbols;
+    bool lexical_analysis_passed{false};
+    bool syntax_analysis_passed{false};
+    bool semantic_analysis_passed{false};
 };
 
 class Frontend {

@@ -21,8 +21,12 @@ bool test_valid_program() {
 bool test_lexical_error() {
     edulang::DiagnosticBag diagnostics;
     edulang::Frontend frontend;
-    static_cast<void>(frontend.analyze("int a = 10; @\n", diagnostics));
-    return diagnostics.has_errors() && diagnostics.all()[0].span.start.line == 1;
+    const std::string source = "int a = 10; @\n";
+    static_cast<void>(frontend.analyze(source, diagnostics));
+    const std::string rendered = diagnostics.render(source, "test.edu");
+    return diagnostics.has_errors() && diagnostics.all()[0].span.start.line == 1 &&
+           diagnostics.all()[0].span.start.column == 13 &&
+           rendered.find("  |             ^\n") != std::string::npos;
 }
 
 bool test_syntax_error() {

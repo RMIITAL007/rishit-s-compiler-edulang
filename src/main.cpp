@@ -62,6 +62,14 @@ void print_symbol_table(const edulang::SymbolTable& symbols) {
     }
 }
 
+void print_stage_status(const char* stage, bool passed) {
+    std::cout << '[' << (passed ? "PASS" : "FAIL") << "] " << stage << '\n';
+}
+
+void print_skipped_stage(const char* stage) {
+    std::cout << "[SKIP] " << stage << " (an earlier stage failed)\n";
+}
+
 }  
 
 int main(int argc, char* argv[]) {
@@ -94,6 +102,21 @@ int main(int argc, char* argv[]) {
     edulang::Frontend frontend;
     edulang::FrontendResult result = frontend.analyze(source, diagnostics);
 
+    if (mode == "all") {
+        std::cout << "Pipeline Status\n";
+        print_stage_status("Lexical analysis", result.lexical_analysis_passed);
+        if (result.lexical_analysis_passed) {
+            print_stage_status("Syntax analysis", result.syntax_analysis_passed);
+        } else {
+            print_skipped_stage("Syntax analysis");
+        }
+        if (result.syntax_analysis_passed) {
+            print_stage_status("Semantic analysis", result.semantic_analysis_passed);
+        } else {
+            print_skipped_stage("Semantic analysis");
+        }
+    }
+
     if (mode == "all" || mode == "tokens") {
         std::cout << "Tokens\n";
         print_tokens(result.tokens);
@@ -110,11 +133,17 @@ int main(int argc, char* argv[]) {
         const edulang::ir::Program unoptimized_ir = generator.generate(result.program);
         edulang::ir::Optimizer optimizer;
         const edulang::ir::Program ir = optimizer.optimize(unoptimized_ir);
+        if (mode == "all") {
+            print_stage_status("IR generation and optimization", true);
+        }
         if (mode == "all" || mode == "ir") {
             std::cout << "Intermediate Code\n";
             edulang::ir::print(ir, std::cout);
         }
         if (mode == "all" || mode == "target") {
+            if (mode == "all") {
+                print_stage_status("Target-code generation", true);
+            }
             std::cout << "Target Code\n";
             edulang::target::CodeGenerator code_generator;
             code_generator.generate(ir, std::cout);
@@ -122,10 +151,14 @@ int main(int argc, char* argv[]) {
         if (mode == "all" || mode == "run") {
             std::cout << "Output\n";
             edulang::runtime::Interpreter interpreter;
-            interpreter.run(ir, diagnostics, std::cout);
+            const bool execution_passed = interpreter.run(ir, diagnostics, std::cout);
+            if (mode == "all") {
+                print_stage_status("Program execution", execution_passed);
+            }
         }
     }
     if (!diagnostics.empty()) {
+        std::cout.flush();
         std::cerr << diagnostics.render(source, file_name);
         return 1;
     }

@@ -64,8 +64,8 @@ std::string DiagnosticBag::render(std::string_view source, std::string_view sour
 
             const std::size_t start_column = start.column > 0 ? start.column - 1 : 0;
             const std::size_t end_column = end.column > 0 ? end.column - 1 : 0;
-            const std::size_t width = (start.line == end.line && end_column >= start_column)
-                                         ? (end_column - start_column + 1)
+            const std::size_t width = (start.line == end.line && end_column > start_column)
+                                         ? (end_column - start_column)
                                          : 1;
             output << std::string(start_column, ' ') << std::string(width, '^') << '\n';
         }
