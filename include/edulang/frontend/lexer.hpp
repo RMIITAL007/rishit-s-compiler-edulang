@@ -3,8 +3,13 @@
 #include <string_view>
 #include <vector>
 
+#if __has_include("edulang/frontend/diagnostic.hpp")
 #include "edulang/frontend/diagnostic.hpp"
 #include "edulang/frontend/token.hpp"
+#else
+#include "diagnostic.hpp"
+#include "token.hpp"
+#endif
 
 namespace edulang {
 

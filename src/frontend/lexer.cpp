@@ -1,4 +1,8 @@
+#if __has_include("edulang/frontend/lexer.hpp")
 #include "edulang/frontend/lexer.hpp"
+#else
+#include "../../include/edulang/frontend/lexer.hpp"
+#endif
 
 #include <charconv>
 #include <cstdint>

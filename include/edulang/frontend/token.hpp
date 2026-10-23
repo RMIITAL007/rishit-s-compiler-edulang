@@ -4,7 +4,11 @@
 #include <optional>
 #include <string>
 
+#if __has_include("edulang/common/source.hpp")
 #include "edulang/common/source.hpp"
+#else
+#include "../common/source.hpp"
+#endif
 
 namespace edulang {
 
