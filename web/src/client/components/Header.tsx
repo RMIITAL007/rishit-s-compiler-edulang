@@ -47,10 +47,15 @@ export const Header: React.FC<HeaderProps> = ({ status, isBackendReady, onOpenAr
           </div>
         );
       default:
-        return (
+        return isBackendReady ? (
+          <div className="status-pill ready">
+            <div className="status-dot active" />
+            <span>Backend Active & Ready</span>
+          </div>
+        ) : (
           <div className="status-pill idle">
             <div className="status-dot" />
-            <span>Ready {isBackendReady ? '(Backend Active)' : '(Connecting...)'}</span>
+            <span>Connecting to Backend...</span>
           </div>
         );
     }

@@ -140,6 +140,12 @@ body {
   transition: all 0.2s ease;
 }
 
+.status-pill.ready {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
 .status-pill.idle {
   background: rgba(100, 116, 139, 0.15);
   color: #94a3b8;
@@ -181,6 +187,17 @@ body {
   height: 8px;
   border-radius: 50%;
   background: currentColor;
+}
+
+.status-dot.active {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
+  animation: pulse-soft 2s infinite ease-in-out;
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
 }
 
 .status-pill.compiling .status-dot {

@@ -101,7 +101,7 @@ Recursive descent provides direct, readable control over error handling and sync
 
 ### Q2: How does your Symbol Table support lexical scoping and shadowing?
 **Answer:**  
-The symbol table uses a stack of hash maps (`std::vector<std::unordered_map<std::string, Symbol>>`). When the parser enters a `{` block, `enter_scope()` pushes a new map onto the stack. When resolving a variable name, `lookup()` searches from the top of the stack (innermost scope) down to the bottom (global scope). When the block exits `}`, `exit_scope()` pops the innermost scope. This naturally supports variable shadowing while strictly forbidding redeclaration within the *same* scope.
+The symbol table uses a stack of hash maps (`std::vector<std::unordered_map<std::string, Symbol>>`). During semantic analysis, entering a `{` block calls `enter_scope()` to push a new map. When resolving a variable name, `lookup()` searches from the top of the stack (innermost scope) down to the bottom (global scope). On block exit, `exit_scope()` pops the innermost scope. This naturally supports variable shadowing while strictly forbidding redeclaration within the *same* scope.
 
 ### Q3: What intermediate code representation did you select and why?
 **Answer:**  
